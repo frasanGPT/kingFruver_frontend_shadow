@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import AppShell from '../components/AppShell';
+import StatusBadge from '../components/StatusBadge';
 import StateNoticeCard from '../components/StateNoticeCard';
 import { getArqueos } from '../services/arqueoService';
 import { getCajas } from '../services/cajaService';
@@ -31,23 +32,20 @@ function getArqueoSemantic(diferencia) {
   if (value > 0) {
     return {
       text: `Sobrante: ${formatCurrency(value)}`,
-      containerStyle: styles.semanticPositiveBox,
-      textStyle: styles.semanticPositiveText,
+      variant: 'success',
     };
   }
 
   if (value < 0) {
     return {
       text: `Faltante: ${formatCurrency(Math.abs(value))}`,
-      containerStyle: styles.semanticNegativeBox,
-      textStyle: styles.semanticNegativeText,
+      variant: 'danger',
     };
   }
 
   return {
     text: 'Cuadre perfecto: $0',
-    containerStyle: styles.semanticNeutralBox,
-    textStyle: styles.semanticNeutralText,
+    variant: 'info',
   };
 }
 
@@ -248,7 +246,7 @@ export default function ReportesScreen({ onBack }) {
       const session = await loadSession();
 
       if (!session?.token) {
-        setScreenResult('No hay sesion guardada. Entra a Ventas, inicia sesion y vuelve.');
+        setScreenResult('No hay sesion guardada. Entra a Home, valida acceso y vuelve.');
         setVentas([]);
         setArqueos([]);
         setCajas([]);
@@ -591,11 +589,10 @@ export default function ReportesScreen({ onBack }) {
               Contado efectivo: {formatCurrency(ultimoArqueo.contadoEfectivo || 0)}
             </Text>
 
-            <View style={[styles.semanticBoxBase, arqueoSemantic.containerStyle]}>
-              <Text style={[styles.semanticTextBase, arqueoSemantic.textStyle]}>
-                {arqueoSemantic.text}
-              </Text>
-            </View>
+            <StatusBadge
+              label={arqueoSemantic.text}
+              variant={arqueoSemantic.variant}
+            />
 
             <Text style={styles.metricBlock}>
               Transferencia: {formatCurrency(ultimoArqueo.totalTransferencia || 0)}
