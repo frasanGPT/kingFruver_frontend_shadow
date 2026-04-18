@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import AppShell from '../components/AppShell';
+import StatusBadge from '../components/StatusBadge';
 import { closeCajaWithArqueo, getCajas, openCaja } from '../services/cajaService';
 import { loadSession, saveSession } from '../services/sessionService';
 
@@ -68,6 +69,18 @@ function parseMoneyInput(value) {
   }
 
   return Number(normalized);
+}
+
+function getCajaStatusVariant(estado) {
+  if (estado === 'abierta') {
+    return 'success';
+  }
+
+  if (estado === 'cerrada') {
+    return 'neutral';
+  }
+
+  return 'info';
 }
 
 export default function CajasScreen({ onBack }) {
@@ -345,9 +358,15 @@ export default function CajasScreen({ onBack }) {
                 <Text style={[styles.selectorText, isSelected && styles.selectorTextActive]}>
                   Codigo: {caja.codigo}
                 </Text>
-                <Text style={[styles.selectorText, isSelected && styles.selectorTextActive]}>
-                  Estado: {caja.estado}
-                </Text>
+                <View style={styles.inlineBadgeRow}>
+                  <Text style={[styles.selectorText, isSelected && styles.selectorTextActive]}>
+                    Estado:
+                  </Text>
+                  <StatusBadge
+                    label={caja.estado}
+                    variant={getCajaStatusVariant(caja.estado)}
+                  />
+                </View>
                 <Text style={[styles.selectorText, isSelected && styles.selectorTextActive]}>
                   Apertura: {formatCurrency(caja.saldoApertura || 0)}
                 </Text>
@@ -364,7 +383,13 @@ export default function CajasScreen({ onBack }) {
           <>
             <Text style={styles.cardText}>Nombre: {selectedCaja.nombre}</Text>
             <Text style={styles.cardText}>Codigo: {selectedCaja.codigo}</Text>
-            <Text style={styles.cardText}>Estado: {selectedCaja.estado}</Text>
+            <View style={styles.inlineBadgeRow}>
+              <Text style={styles.cardText}>Estado:</Text>
+              <StatusBadge
+                label={selectedCaja.estado}
+                variant={getCajaStatusVariant(selectedCaja.estado)}
+              />
+            </View>
             <Text style={styles.cardText}>
               Apertura base: {formatCurrency(selectedCaja.saldoApertura || 0)}
             </Text>
@@ -543,6 +568,13 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: '#6b7280',
     marginBottom: 12,
+  },
+  inlineBadgeRow: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
   },
   summaryBox: {
     width: '100%',

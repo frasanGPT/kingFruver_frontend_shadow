@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import AppShell from '../components/AppShell';
 import SummaryStatsRow from '../components/SummaryStatsRow';
+import StatusBadge from '../components/StatusBadge';
 import StateNoticeCard from '../components/StateNoticeCard';
 import { getInventarioDisponible } from '../services/inventarioService';
 import { loadSession } from '../services/sessionService';
@@ -14,14 +15,14 @@ function getStockLevel(stock) {
   const value = Number(stock || 0);
 
   if (value >= 50) {
-    return { label: 'alto', style: styles.stockBadgeHigh };
+    return { label: 'alto', variant: 'success' };
   }
 
   if (value >= 20) {
-    return { label: 'medio', style: styles.stockBadgeMedium };
+    return { label: 'medio', variant: 'warning' };
   }
 
-  return { label: 'bajo', style: styles.stockBadgeLow };
+  return { label: 'bajo', variant: 'danger' };
 }
 
 export default function ProductosScreen({ onBack }) {
@@ -280,9 +281,10 @@ export default function ProductosScreen({ onBack }) {
                     <Text style={styles.productUnitText}>{item.unidadBase}</Text>
                   </View>
 
-                  <View style={[styles.stockBadge, stockLevel.style]}>
-                    <Text style={styles.stockBadgeText}>{stockLevel.label}</Text>
-                  </View>
+                  <StatusBadge
+                    label={stockLevel.label}
+                    variant={stockLevel.variant}
+                  />
                 </View>
 
                 <View style={styles.productDetailRow}>
