@@ -5,6 +5,22 @@ import { clearSession, loadSession, saveSession } from '../services/sessionServi
 import { extractSedeIdFromUser, getRoleCode } from '../utils/accessControl';
 
 const ADMIN_EMAIL = 'admin.shadow@kingfruver.local';
+const SHADOW_SEDE_ID = '69aa0d3cd908c9f5f152fc2c';
+const SHADOW_SEDE_LABEL = 'Sede Shadow (SH01)';
+
+function resolveShadowSedeId(usuario, fallbackEmail) {
+  const extracted = extractSedeIdFromUser(usuario);
+
+  if (extracted) {
+    return extracted;
+  }
+
+  if ((usuario && usuario.email === ADMIN_EMAIL) || fallbackEmail === ADMIN_EMAIL) {
+    return SHADOW_SEDE_ID;
+  }
+
+  return '';
+}
 
 export default function LoginAccessCard({ onSessionChange }) {
   const [authEmail, setAuthEmail] = useState(ADMIN_EMAIL);
@@ -13,6 +29,7 @@ export default function LoginAccessCard({ onSessionChange }) {
   const [loadingSession, setLoadingSession] = useState(true);
   const [resultText, setResultText] = useState('Sin sesion iniciada.');
   const [authUser, setAuthUser] = useState(null);
+  const [authSedeId, setAuthSedeId] = useState('');
 
   useEffect(() => {
     async function hydrateSession() {
@@ -21,6 +38,7 @@ export default function LoginAccessCard({ onSessionChange }) {
 
         if (session && session.usuario) {
           setAuthUser(session.usuario);
+          setAuthSedeId(session.sedeId || resolveShadowSedeId(session.usuario, session.usuario?.email || ''));
           setResultText(`Sesion activa: ${session.usuario.email}`);
           onSessionChange(session);
         } else {
@@ -64,16 +82,19 @@ export default function LoginAccessCard({ onSessionChange }) {
         throw new Error('Login sin token o sin usuario valido.');
       }
 
+      const resolvedSedeId = resolveShadowSedeId(usuario, authEmail.trim());
+
       const session = {
         token,
         usuario,
         usuarioId: usuario._id,
-        sedeId: extractSedeIdFromUser(usuario),
+        sedeId: resolvedSedeId,
       };
 
       await saveSession(session);
 
       setAuthUser(usuario);
+      setAuthSedeId(resolvedSedeId || '');
       setResultText(
         `Sesion iniciada: ${usuario.email} | rol: ${getRoleCode(usuario) || 'sin rol'}`
       );
@@ -90,6 +111,7 @@ export default function LoginAccessCard({ onSessionChange }) {
   async function handleLogout() {
     await clearSession();
     setAuthUser(null);
+    setAuthSedeId('');
     setAuthPassword('');
     setResultText('Sesion cerrada.');
     onSessionChange(null);
@@ -141,7 +163,7 @@ export default function LoginAccessCard({ onSessionChange }) {
           <Text style={styles.sessionText}>Usuario: {authUser.email}</Text>
           <Text style={styles.sessionText}>Rol: {getRoleCode(authUser) || 'sin rol'}</Text>
           <Text style={styles.sessionText}>
-            Sede: {extractSedeIdFromUser(authUser) || 'sin sede'}
+            Sede: {authUser?.sedeId?.nombre || authUser?.sedeId?.codigo || (authSedeId === SHADOW_SEDE_ID ? SHADOW_SEDE_LABEL : authSedeId ? 'configurada' : 'sin sede')}
           </Text>
         </View>
       ) : null}

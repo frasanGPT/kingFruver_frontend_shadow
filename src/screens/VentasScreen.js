@@ -8,15 +8,13 @@ import {
   View,
 } from 'react-native';
 import AppShell from '../components/AppShell';
-import { loginWithPassword } from '../services/authService';
 import { createCarrito, getCarritos } from '../services/carritoService';
 import { createVenta } from '../services/ventaService';
 import { getInventarioDisponible } from '../services/inventarioService';
-import { clearSession, loadSession, saveSession } from '../services/sessionService';
+import { loadSession, saveSession } from '../services/sessionService';
 
 const SHADOW_DEFAULT_SEDE_ID = '69aa0d3cd908c9f5f152fc2c';
 const SHADOW_DEFAULT_CAJA_ID = '69aecd84319a254c552951a8';
-const SHADOW_DEFAULT_EMAIL = 'vendedor.shadow@kingfruver.local';
 const SHADOW_ADMIN_EMAIL = 'admin.shadow@kingfruver.local';
 
 function formatCurrency(value) {
@@ -80,8 +78,6 @@ export default function VentasScreen({ onBack }) {
   const [usuarioId, setUsuarioId] = useState('');
   const [cajaId, setCajaId] = useState(SHADOW_DEFAULT_CAJA_ID);
   const [bearerToken, setBearerToken] = useState('');
-  const [authEmail, setAuthEmail] = useState(SHADOW_DEFAULT_EMAIL);
-  const [authPassword, setAuthPassword] = useState('');
   const [authUser, setAuthUser] = useState(null);
   const [authResult, setAuthResult] = useState('Todavia no has iniciado sesion.');
   const [loggingIn, setLoggingIn] = useState(false);
@@ -112,16 +108,19 @@ export default function VentasScreen({ onBack }) {
           return;
         }
 
+        const restoredUser = session.usuario || session.authUser || null;
+        const restoredSedeId =
+          session.sedeId || extractSedeIdFromUser(restoredUser) || SHADOW_DEFAULT_SEDE_ID;
+
         setBearerToken(session.token || '');
-        setAuthUser(session.authUser || null);
-        setAuthEmail(session.authEmail || SHADOW_DEFAULT_EMAIL);
-        setUsuarioId(session.usuarioId || '');
-        setSedeId(session.sedeId || SHADOW_DEFAULT_SEDE_ID);
+        setAuthUser(restoredUser);
+        setUsuarioId(session.usuarioId || restoredUser?._id || '');
+        setSedeId(restoredSedeId);
         setCajaId(session.cajaId || SHADOW_DEFAULT_CAJA_ID);
         setMetodoPago(session.metodoPago || 'efectivo');
         setRecentSelections(session.recentSelections || []);
         setAuthResult(
-          `Sesion restaurada: ${session.authUser?.email || session.authEmail || 'usuario'}`
+          `Sesion restaurada: ${restoredUser?.email || 'usuario'}`
         );
       } catch (error) {
         setAuthResult('No se pudo restaurar la sesion guardada.');
@@ -142,8 +141,7 @@ export default function VentasScreen({ onBack }) {
       try {
         await saveSession({
           token: bearerToken,
-          authUser,
-          authEmail,
+          usuario: authUser,
           usuarioId,
           sedeId,
           cajaId,
@@ -155,7 +153,7 @@ export default function VentasScreen({ onBack }) {
     }
 
     persistSessionPreferences();
-  }, [bearerToken, authUser, authEmail, usuarioId, sedeId, cajaId, metodoPago, recentSelections]);
+  }, [bearerToken, authUser, usuarioId, sedeId, cajaId, metodoPago, recentSelections]);
 
   const totalVenta = useMemo(() => {
     return items.reduce((acc, item) => acc + item.subtotal, 0);
@@ -351,67 +349,6 @@ export default function VentasScreen({ onBack }) {
     setAuthResult('Preset cargado: Vendedor Shadow.');
   }
 
-  async function handleLogin() {
-    if (!authEmail.trim()) {
-      setAuthResult('Debes escribir el email.');
-      return;
-    }
-
-    if (!authPassword.trim()) {
-      setAuthResult('Debes escribir la password.');
-      return;
-    }
-
-    try {
-      setLoggingIn(true);
-      setAuthResult('Iniciando sesion en shadow...');
-
-      const response = await loginWithPassword({
-        email: authEmail.trim(),
-        password: authPassword,
-      });
-
-      const token = response?.data?.token || '';
-      const usuario = response?.data?.usuario || null;
-
-      if (!token || !usuario?._id) {
-        throw new Error('Login sin token o sin usuario valido.');
-      }
-
-      const sedeIdFromUser = extractSedeIdFromUser(usuario);
-      const resolvedSedeId = sedeIdFromUser || SHADOW_DEFAULT_SEDE_ID;
-      const resolvedCajaId = SHADOW_DEFAULT_CAJA_ID;
-
-      setBearerToken(token);
-      setAuthUser(usuario);
-      setUsuarioId(usuario._id);
-      setSedeId(resolvedSedeId);
-      setCajaId(resolvedCajaId);
-
-      await saveSession({
-        token,
-        authUser: usuario,
-        authEmail: authEmail.trim(),
-        usuarioId: usuario._id,
-        sedeId: resolvedSedeId,
-        cajaId: resolvedCajaId,
-        metodoPago,
-        recentSelections,
-      });
-
-      setAuthResult(
-        `Sesion iniciada: ${usuario.email} | rol: ${usuario?.roleId?.codigo || 'sin rol'}`
-      );
-    } catch (error) {
-      setBearerToken('');
-      setAuthUser(null);
-      setUsuarioId('');
-      setAuthResult(`Error: ${error.message}`);
-    } finally {
-      setLoggingIn(false);
-    }
-  }
-
   async function handleCerrarSesion() {
     await clearSession();
     setBearerToken('');
@@ -584,7 +521,7 @@ export default function VentasScreen({ onBack }) {
 
   async function handleCargarInventarioDisponible() {
     if (!bearerToken.trim()) {
-      setInventarioResult('Primero inicia sesion para consultar inventario.');
+      setInventarioResult('Primero valida acceso en Home para consultar inventario.');
       return;
     }
 
@@ -621,7 +558,7 @@ export default function VentasScreen({ onBack }) {
 
   async function handleCrearCarritoReal() {
     if (!bearerToken.trim()) {
-      setCarritoResult('Primero inicia sesion para crear el carrito real.');
+      setCarritoResult('Primero valida acceso en Home para crear el carrito real.');
       return;
     }
 
@@ -656,7 +593,7 @@ export default function VentasScreen({ onBack }) {
 
   async function handleConsultarCarritos() {
     if (!bearerToken.trim()) {
-      setCarritosQueryResult('Primero inicia sesion para consultar carritos.');
+      setCarritosQueryResult('Primero valida acceso en Home para consultar carritos.');
       return;
     }
 
@@ -688,7 +625,7 @@ export default function VentasScreen({ onBack }) {
 
   async function handleCrearVentaReal() {
     if (!bearerToken.trim()) {
-      setVentaResult('Primero inicia sesion para crear la venta real.');
+      setVentaResult('Primero valida acceso en Home para crear la venta real.');
       return;
     }
 
@@ -741,38 +678,24 @@ export default function VentasScreen({ onBack }) {
     <AppShell
       title="Ventas"
       subtitle="Primer modulo real"
-      description="Login en app + productos obligatoriamente seleccionados desde inventario."
+      description="Venta real + productos obligatoriamente seleccionados desde inventario."
       layout="top"
     >
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Contexto operativo</Text>
 
-        <Text style={styles.label}>sedeId</Text>
-        <TextInput
-          value={sedeId}
-          onChangeText={setSedeId}
-          placeholder="sedeId"
-          style={styles.input}
-          autoCapitalize="none"
-        />
-
-        <Text style={styles.label}>usuarioId autocompletado</Text>
-        <TextInput
-          value={usuarioId}
-          onChangeText={setUsuarioId}
-          placeholder="usuarioId"
-          style={styles.input}
-          autoCapitalize="none"
-        />
-
-        <Text style={styles.label}>cajaId</Text>
-        <TextInput
-          value={cajaId}
-          onChangeText={setCajaId}
-          placeholder="cajaId"
-          style={styles.input}
-          autoCapitalize="none"
-        />
+        <Text style={styles.cardText}>
+          Usuario: {authUser?.email || 'sin usuario'}
+        </Text>
+        <Text style={styles.cardText}>
+          Sede: {authUser?.sedeId?.nombre || authUser?.sedeId?.codigo || (sedeId ? 'configurada' : 'sin sede')}
+        </Text>
+        <Text style={styles.cardText}>
+          Caja operativa: {cajaId ? 'configurada' : 'sin caja'}
+        </Text>
+        <Text style={styles.cardText}>
+          Metodo de pago: {metodoPago}
+        </Text>
       </View>
 
       <View style={styles.card}>
