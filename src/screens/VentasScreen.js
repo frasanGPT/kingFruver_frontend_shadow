@@ -339,25 +339,6 @@ export default function VentasScreen({ onBack }) {
     }, 80);
   }
 
-  function handleUseAdminPreset() {
-    setAuthEmail(SHADOW_ADMIN_EMAIL);
-    setAuthResult('Preset cargado: Admin Shadow.');
-  }
-
-  function handleUseVendedorPreset() {
-    setAuthEmail(SHADOW_DEFAULT_EMAIL);
-    setAuthResult('Preset cargado: Vendedor Shadow.');
-  }
-
-  async function handleCerrarSesion() {
-    await clearSession();
-    setBearerToken('');
-    setAuthUser(null);
-    setUsuarioId('');
-    setAuthPassword('');
-    setAuthResult('Sesion cerrada.');
-  }
-
   function handleAgregarOActualizarItem() {
     const nombreLimpio = productoNombre.trim();
     const cantidadNumero = parseDecimalInput(cantidad);
