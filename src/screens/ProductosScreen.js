@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import AppShell from '../components/AppShell';
+import SummaryStatsRow from '../components/SummaryStatsRow';
 import StateNoticeCard from '../components/StateNoticeCard';
 import { getInventarioDisponible } from '../services/inventarioService';
 import { loadSession } from '../services/sessionService';
@@ -31,6 +32,40 @@ export default function ProductosScreen({ onBack }) {
   const [inventarioItems, setInventarioItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [screenResult, setScreenResult] = useState('Cargando productos...');
+
+  const availableUnits = useMemo(() => {
+    const units = Array.from(
+      new Set(
+        inventarioItems
+          .map((item) => String(item.unidadBase || '').trim().toLowerCase())
+          .filter(Boolean)
+      )
+    ).sort((a, b) => a.localeCompare(b, 'es'));
+
+    return ['todos', ...units];
+  }, [inventarioItems]);
+
+  const stockSummaryByUnit = useMemo(() => {
+    const sourceItems = Array.isArray(filteredItems) ? filteredItems : [];
+    const summary = {};
+
+    sourceItems.forEach((item) => {
+      const unit = String(item.unidadBase || 'sin_unidad');
+      const stock = Number(item.stockDisponible || 0);
+      summary[unit] = (summary[unit] || 0) + stock;
+    });
+
+    return Object.entries(summary)
+      .sort((a, b) => a[0].localeCompare(b[0], 'es'))
+      .map(([unidad, total]) => ({
+        unidad,
+        total,
+      }));
+  }, [filteredItems]);
+
+  const detectedUnitsText = useMemo(() => {
+    return availableUnits.filter((unit) => unit != 'todos').join(', ') || 'sin datos';
+  }, [availableUnits]);
 
   const filteredItems = useMemo(() => {
     const text = searchText.trim().toLowerCase();
@@ -94,6 +129,33 @@ export default function ProductosScreen({ onBack }) {
       return acc + Number(item.stockDisponible || 0);
     }, 0);
   }, [filteredItems]);
+
+  const selectedUnitStockTotal = useMemo(() => {
+    if (unidadFiltro === 'todos') {
+      return null;
+    }
+
+    return filteredItems.reduce((acc, item) => {
+      return acc + Number(item.stockDisponible || 0);
+    }, 0);
+  }, [filteredItems, unidadFiltro]);
+
+  const summaryItems = useMemo(() => {
+    const items = [
+      { label: 'Visibles', value: String(visibleCount) },
+      { label: 'Registros', value: String(inventarioItems.length) },
+      { label: 'Filtro', value: unidadFiltro },
+    ];
+
+    if (unidadFiltro !== 'todos') {
+      items.push({
+        label: 'Stock visible',
+        value: String(selectedUnitStockTotal || 0),
+      });
+    }
+
+    return items;
+  }, [visibleCount, inventarioItems.length, unidadFiltro, selectedUnitStockTotal]);
 
   async function loadProductos() {
     try {
@@ -180,7 +242,7 @@ export default function ProductosScreen({ onBack }) {
         </View>
 
         <Text style={styles.helperText}>
-          Sede actual: {sedeId || 'sin sede'}{'\n'}
+          Unidades detectadas desde inventario: {detectedUnitsText}{'\n'}
           Token cargado: {token ? 'si' : 'no'}
         </Text>
       </View>
@@ -188,22 +250,14 @@ export default function ProductosScreen({ onBack }) {
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Resumen</Text>
 
-        <View style={styles.summaryRow}>
-          <View style={styles.summaryChip}>
-            <Text style={styles.summaryChipLabel}>Visibles</Text>
-            <Text style={styles.summaryChipValue}>{visibleCount}</Text>
-          </View>
+        <SummaryStatsRow items={summaryItems} />
 
-          <View style={styles.summaryChip}>
-            <Text style={styles.summaryChipLabel}>Stock acumulado</Text>
-            <Text style={styles.summaryChipValue}>{stockAcumulado}</Text>
-          </View>
-
-          <View style={styles.summaryChip}>
-            <Text style={styles.summaryChipLabel}>Unidad</Text>
-            <Text style={styles.summaryChipValue}>{unidadFiltro}</Text>
-          </View>
-        </View>
+        <Text style={styles.helperText}>Acumulado por unidad</Text>
+        {stockSummaryByUnit.map((row) => (
+          <Text key={row.unidad} style={styles.productMeta}>
+            {row.unidad}: {row.total}
+          </Text>
+        ))}
       </View>
 
       <View style={styles.card}>

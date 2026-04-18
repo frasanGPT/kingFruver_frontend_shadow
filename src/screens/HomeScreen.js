@@ -1,9 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import AppShell from '../components/AppShell';
 import HealthStatusCard from '../components/HealthStatusCard';
+import LoginAccessCard from '../components/LoginAccessCard';
 import QuickActionCard from '../components/QuickActionCard';
 import { getHealth } from '../services/healthService';
+import { loadSession } from '../services/sessionService';
+import { buildModuleAccess } from '../utils/accessControl';
 
 function buildHealthText(data) {
   return [
@@ -17,10 +20,12 @@ function buildHealthText(data) {
 
 export default function HomeScreen({ onOpenSection }) {
   const [loading, setLoading] = useState(false);
+  const [loadingSession, setLoadingSession] = useState(true);
   const [resultText, setResultText] = useState(
     'Listo para verificar conexion con el backend shadow.'
   );
   const [status, setStatus] = useState('idle');
+  const [session, setSession] = useState(null);
 
   async function handleCheckHealth() {
     try {
@@ -42,7 +47,45 @@ export default function HomeScreen({ onOpenSection }) {
     }
   }
 
+  const moduleAccess = useMemo(() => {
+    return buildModuleAccess(session ? session.usuario : null);
+  }, [session]);
+
+  function handleSessionChange(nextSession) {
+    setSession(nextSession);
+  }
+
+  function getModuleBadge(sectionName) {
+    const allowed = moduleAccess[sectionName];
+
+    if (loadingSession) {
+      return 'Cargando';
+    }
+
+    if (allowed) {
+      return 'Disponible';
+    }
+
+    return 'Sin acceso';
+  }
+
+  function handleOpenProtectedSection(sectionName) {
+    if (moduleAccess[sectionName]) {
+      onOpenSection(sectionName);
+    }
+  }
+
   useEffect(() => {
+    async function hydrateHomeSession() {
+      try {
+        const savedSession = await loadSession();
+        setSession(savedSession);
+      } finally {
+        setLoadingSession(false);
+      }
+    }
+
+    hydrateHomeSession();
     handleCheckHealth();
   }, []);
 
@@ -53,33 +96,39 @@ export default function HomeScreen({ onOpenSection }) {
       description="Inicio base del frontend conectado al backend shadow."
       layout="top"
     >
+      <LoginAccessCard onSessionChange={handleSessionChange} />
+
       <View style={styles.grid}>
         <QuickActionCard
           title="Productos"
-          description="Catalogo, precios y unidades."
-          badge="Base"
-          onPress={() => onOpenSection('Productos')}
+          description="Consulta real de inventario y catalogo visible."
+          badge={getModuleBadge('Productos')}
+          disabled={moduleAccess.Productos !== true}
+          onPress={() => handleOpenProtectedSection('Productos')}
         />
 
         <QuickActionCard
           title="Ventas"
-          description="Flujo de venta y resumen de operacion."
-          badge="Base"
-          onPress={() => onOpenSection('Ventas')}
+          description="Flujo de venta y operacion principal."
+          badge={getModuleBadge('Ventas')}
+          disabled={moduleAccess.Ventas !== true}
+          onPress={() => handleOpenProtectedSection('Ventas')}
         />
 
         <QuickActionCard
           title="Cajas"
-          description="Caja actual, apertura y cierre."
-          badge="Base"
-          onPress={() => onOpenSection('Cajas')}
+          description="Caja actual, apertura, cierre y arqueo."
+          badge={getModuleBadge('Cajas')}
+          disabled={moduleAccess.Cajas !== true}
+          onPress={() => handleOpenProtectedSection('Cajas')}
         />
 
         <QuickActionCard
           title="Reportes"
-          description="Vista rapida para validaciones iniciales."
-          badge="Base"
-          onPress={() => onOpenSection('Reportes')}
+          description="Resumen operativo filtrable y validaciones rapidas."
+          badge={getModuleBadge('Reportes')}
+          disabled={moduleAccess.Reportes !== true}
+          onPress={() => handleOpenProtectedSection('Reportes')}
         />
       </View>
 

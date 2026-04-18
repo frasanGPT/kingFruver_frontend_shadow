@@ -745,62 +745,6 @@ export default function VentasScreen({ onBack }) {
       layout="top"
     >
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Sesion shadow</Text>
-
-        <View style={styles.presetRow}>
-          <Pressable style={styles.presetButton} onPress={handleUseVendedorPreset}>
-            <Text style={styles.presetButtonText}>Usar vendedor</Text>
-          </Pressable>
-
-          <Pressable style={styles.presetButton} onPress={handleUseAdminPreset}>
-            <Text style={styles.presetButtonText}>Usar admin</Text>
-          </Pressable>
-        </View>
-
-        <Text style={styles.label}>Email</Text>
-        <TextInput
-          value={authEmail}
-          onChangeText={setAuthEmail}
-          placeholder="Email shadow"
-          style={styles.input}
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
-
-        <Text style={styles.label}>Password</Text>
-        <TextInput
-          value={authPassword}
-          onChangeText={setAuthPassword}
-          placeholder="Password shadow"
-          style={styles.input}
-          secureTextEntry
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
-
-        <Pressable style={styles.loginButton} onPress={handleLogin}>
-          <Text style={styles.loginButtonText}>Iniciar sesion</Text>
-        </Pressable>
-
-        {loggingIn ? <ActivityIndicator size="large" style={styles.loader} /> : null}
-        {restoringSession ? <ActivityIndicator size="large" style={styles.loader} /> : null}
-
-        <Pressable style={styles.logoutButton} onPress={handleCerrarSesion}>
-          <Text style={styles.logoutButtonText}>Cerrar sesion</Text>
-        </Pressable>
-
-        <Text style={styles.payloadText}>{authResult}</Text>
-
-        {authUser ? (
-          <View style={styles.sessionBox}>
-            <Text style={styles.sessionText}>Usuario: {authUser.email}</Text>
-            <Text style={styles.sessionText}>Rol: {authUser?.roleId?.codigo || 'sin rol'}</Text>
-            <Text style={styles.sessionText}>usuarioId: {usuarioId || 'sin valor'}</Text>
-          </View>
-        ) : null}
-      </View>
-
-      <View style={styles.card}>
         <Text style={styles.cardTitle}>Contexto operativo</Text>
 
         <Text style={styles.label}>sedeId</Text>
