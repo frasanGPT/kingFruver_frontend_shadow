@@ -27,7 +27,7 @@ export default function LoginAccessCard({ onSessionChange }) {
   const [authPassword, setAuthPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [loadingSession, setLoadingSession] = useState(true);
-  const [resultText, setResultText] = useState('Sin sesion iniciada.');
+  const [resultText, setResultText] = useState('Sin sesión iniciada.');
   const [authUser, setAuthUser] = useState(null);
   const [authSedeId, setAuthSedeId] = useState('');
 
@@ -39,13 +39,13 @@ export default function LoginAccessCard({ onSessionChange }) {
         if (session && session.usuario) {
           setAuthUser(session.usuario);
           setAuthSedeId(session.sedeId || resolveShadowSedeId(session.usuario, session.usuario?.email || ''));
-          setResultText(`Sesion activa: ${session.usuario.email}`);
+          setResultText(`Sesión activa: ${session.usuario.email}`);
           onSessionChange(session);
         } else {
           onSessionChange(null);
         }
       } catch (error) {
-        setResultText(`Error cargando sesion: ${error.message}`);
+        setResultText(`Error cargando sesión: ${error.message}`);
         onSessionChange(null);
       } finally {
         setLoadingSession(false);
@@ -68,7 +68,7 @@ export default function LoginAccessCard({ onSessionChange }) {
 
     try {
       setLoading(true);
-      setResultText('Iniciando sesion en shadow...');
+      setResultText('Iniciando sesión en shadow...');
 
       const response = await loginWithPassword({
         email: authEmail.trim(),
@@ -96,7 +96,7 @@ export default function LoginAccessCard({ onSessionChange }) {
       setAuthUser(usuario);
       setAuthSedeId(resolvedSedeId || '');
       setResultText(
-        `Sesion iniciada: ${usuario.email} | rol: ${getRoleCode(usuario) || 'sin rol'}`
+        `Sesión iniciada: ${usuario.email} | rol: ${getRoleCode(usuario) || 'sin rol'}`
       );
       onSessionChange(session);
     } catch (error) {
@@ -113,7 +113,7 @@ export default function LoginAccessCard({ onSessionChange }) {
     setAuthUser(null);
     setAuthSedeId('');
     setAuthPassword('');
-    setResultText('Sesion cerrada.');
+    setResultText('Sesión cerrada.');
     onSessionChange(null);
   }
 

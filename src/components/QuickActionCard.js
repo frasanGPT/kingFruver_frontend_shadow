@@ -15,18 +15,21 @@ export default function QuickActionCard({
     >
       <View style={styles.headerRow}>
         <Text style={[styles.title, disabled ? styles.titleDisabled : null]}>{title}</Text>
-        {badge ? (
-          <View style={[styles.badge, disabled ? styles.badgeDisabled : null]}>
-            <Text style={[styles.badgeText, disabled ? styles.badgeTextDisabled : null]}>
-              {badge}
-            </Text>
-          </View>
-        ) : null}
       </View>
 
       <Text style={[styles.description, disabled ? styles.descriptionDisabled : null]}>
         {description}
       </Text>
+
+      {badge ? (
+        <View style={styles.badgeRow}>
+          <View style={[styles.badge, disabled ? styles.badgeDisabled : null]}>
+            <Text style={[styles.badgeText, disabled ? styles.badgeTextDisabled : null]}>
+              {badge}
+            </Text>
+          </View>
+        </View>
+      ) : null}
     </Pressable>
   );
 }
@@ -52,6 +55,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: 10,
+  },
+  badgeRow: {
+    width: '100%',
+    marginTop: 12,
+    alignItems: 'flex-start',
   },
   title: {
     flex: 1,

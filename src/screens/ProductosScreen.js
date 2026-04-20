@@ -166,7 +166,7 @@ export default function ProductosScreen({ onBack }) {
       const session = await loadSession();
 
       if (!session?.token) {
-        setScreenResult('No hay sesion guardada. Entra a Home, valida acceso y vuelve.');
+        setScreenResult('No hay sesión guardada. Entra a Home, valida acceso y vuelve.');
         setInventarioItems([]);
         return;
       }
@@ -215,7 +215,7 @@ export default function ProductosScreen({ onBack }) {
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Busqueda y filtros</Text>
+        <Text style={styles.cardTitle}>Búsqueda y filtros</Text>
 
         <TextInput
           value={searchText}

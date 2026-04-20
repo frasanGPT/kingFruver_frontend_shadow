@@ -157,7 +157,7 @@ export default function CajasScreen({ onBack }) {
         const session = await loadSession();
 
         if (!session?.token) {
-          setScreenResult('No hay sesion guardada. Entra a Home, valida acceso y vuelve.');
+          setScreenResult('No hay sesión guardada. Entra a Home, valida acceso y vuelve.');
           setLoading(false);
           return;
         }
@@ -200,7 +200,7 @@ export default function CajasScreen({ onBack }) {
       const session = await loadSession();
 
       if (!session?.token) {
-        setScreenResult('No hay sesion guardada. Entra a Home, valida acceso y vuelve.');
+        setScreenResult('No hay sesión guardada. Entra a Home, valida acceso y vuelve.');
         return;
       }
 

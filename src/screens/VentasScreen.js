@@ -125,7 +125,7 @@ export default function VentasScreen({ onBack }) {
           `Sesion restaurada: ${restoredUser?.email || 'usuario'}`
         );
       } catch (error) {
-        setAuthResult('No se pudo restaurar la sesion guardada.');
+        setAuthResult('No se pudo restaurar la sesión guardada.');
       } finally {
         setRestoringSession(false);
       }
@@ -720,7 +720,7 @@ export default function VentasScreen({ onBack }) {
           Caja operativa: {(cajaOperativaLabel === 'sin caja' && (authUser?.email || '') === 'admin.shadow@kingfruver.local') ? 'Caja Shadow (CJSH01)' : cajaOperativaLabel}
         </Text>
         <Text style={styles.cardText}>
-          Metodo de pago: {metodoPago}
+          Método de pago: {metodoPago}
         </Text>
       </View>
 
@@ -897,7 +897,7 @@ export default function VentasScreen({ onBack }) {
           style={styles.notesInput}
         />
 
-        <Text style={styles.label}>Metodo de pago</Text>
+        <Text style={styles.label}>Método de pago</Text>
         <View style={styles.methodRow}>
           {['efectivo', 'transferencia', 'mixto', 'otro'].map((method) => {
             const active = metodoPago === method;
