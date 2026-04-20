@@ -12,6 +12,7 @@ import { createCarrito, getCarritos } from '../services/carritoService';
 import { createVenta } from '../services/ventaService';
 import { getInventarioDisponible } from '../services/inventarioService';
 import { loadSession, saveSession } from '../services/sessionService';
+import { getCajas } from '../services/cajaService';
 
 const SHADOW_DEFAULT_SEDE_ID = '69aa0d3cd908c9f5f152fc2c';
 const SHADOW_DEFAULT_CAJA_ID = '69aecd84319a254c552951a8';
@@ -77,6 +78,7 @@ export default function VentasScreen({ onBack }) {
   const [sedeId, setSedeId] = useState(SHADOW_DEFAULT_SEDE_ID);
   const [usuarioId, setUsuarioId] = useState('');
   const [cajaId, setCajaId] = useState(SHADOW_DEFAULT_CAJA_ID);
+  const [cajaOperativaLabel, setCajaOperativaLabel] = useState('sin caja');
   const [bearerToken, setBearerToken] = useState('');
   const [authUser, setAuthUser] = useState(null);
   const [authResult, setAuthResult] = useState('Todavia no has iniciado sesion.');
@@ -307,7 +309,50 @@ export default function VentasScreen({ onBack }) {
       return current
         .map((recentItem) => {
           const updatedItem = nextInventarioItems.find((inventarioItem) => {
-            return (
+            useEffect(() => {
+    async function hydrateCajaOperativaLabel() {
+      if (!String(cajaId || '').trim()) {
+        if ((authUser?.email || '') === 'admin.shadow@kingfruver.local') {
+          setCajaOperativaLabel('Caja Shadow (CJSH01)');
+          return;
+        }
+
+        setCajaOperativaLabel('sin caja');
+        return;
+      }
+
+      if (!String(bearerToken || '').trim() || !String(sedeId || '').trim()) {
+        setCajaOperativaLabel('configurada');
+        return;
+      }
+
+      try {
+        const response = await getCajas({
+          token: bearerToken,
+          sedeId,
+          activo: true,
+        });
+
+        const rows = response && response.data ? response.data : [];
+        const match = rows.find((caja) => caja && caja._id === cajaId);
+
+        if (match) {
+          const nombre = match.nombre || 'Caja';
+          const codigo = match.codigo ? ' (' + match.codigo + ')' : '';
+          setCajaOperativaLabel(nombre + codigo);
+          return;
+        }
+
+        setCajaOperativaLabel('configurada');
+      } catch (error) {
+        setCajaOperativaLabel('configurada');
+      }
+    }
+
+    hydrateCajaOperativaLabel();
+  }, [bearerToken, sedeId, cajaId, authUser]);
+
+  return (
               inventarioItem.productoNombre === recentItem.productoNombre &&
               inventarioItem.unidadBase === recentItem.unidadBase
             );
@@ -672,7 +717,7 @@ export default function VentasScreen({ onBack }) {
           Sede: {authUser?.sedeId?.nombre || authUser?.sedeId?.codigo || (sedeId ? 'configurada' : 'sin sede')}
         </Text>
         <Text style={styles.cardText}>
-          Caja operativa: {cajaId ? 'configurada' : 'sin caja'}
+          Caja operativa: {(cajaOperativaLabel === 'sin caja' && (authUser?.email || '') === 'admin.shadow@kingfruver.local') ? 'Caja Shadow (CJSH01)' : cajaOperativaLabel}
         </Text>
         <Text style={styles.cardText}>
           Metodo de pago: {metodoPago}
