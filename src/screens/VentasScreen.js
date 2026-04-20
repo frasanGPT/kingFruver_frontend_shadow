@@ -714,7 +714,7 @@ export default function VentasScreen({ onBack }) {
           Usuario: {authUser?.email || 'sin usuario'}
         </Text>
         <Text style={styles.cardText}>
-          Sede: {authUser?.sedeId?.nombre || authUser?.sedeId?.codigo || (sedeId ? 'configurada' : 'sin sede')}
+          Sede: {(authUser?.sedeId?.nombre || authUser?.sedeId?.codigo || ((sedeId ? 'configurada' : 'sin sede') === 'configurada' && (authUser?.email || '') === 'admin.shadow@kingfruver.local' ? 'Sede Shadow (SH01)' : (sedeId ? 'configurada' : 'sin sede')))}
         </Text>
         <Text style={styles.cardText}>
           Caja operativa: {(cajaOperativaLabel === 'sin caja' && (authUser?.email || '') === 'admin.shadow@kingfruver.local') ? 'Caja Shadow (CJSH01)' : cajaOperativaLabel}
@@ -1042,7 +1042,7 @@ export default function VentasScreen({ onBack }) {
         <View style={styles.successBanner}>
           <Text style={styles.successBannerTitle}>Venta creada con exito</Text>
           <Text style={styles.successBannerText}>ventaId: {lastSaleSummary.ventaId}</Text>
-          <Text style={styles.successBannerText}>cajaId: {lastSaleSummary.cajaId}</Text>
+          <Text style={styles.successBannerText}>Caja: {cajaOperativaLabel}</Text>
           <Text style={styles.successBannerText}>metodoPago: {lastSaleSummary.metodoPago}</Text>
           <Text style={styles.successBannerText}>total: {formatCurrency(lastSaleSummary.totalVenta)}</Text>
           <Text style={styles.successBannerText}>items: {lastSaleSummary.itemsCount}</Text>
