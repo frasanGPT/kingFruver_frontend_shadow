@@ -26,6 +26,16 @@ function formatDateTime(value) {
   return date.toLocaleString('es-CO');
 }
 
+function cleanCajaDisplayName(value) {
+  const raw = String(value || '').trim();
+
+  if (!raw) {
+    return 'sin caja';
+  }
+
+  return raw.replace(/\s\d{9,}$/, '');
+}
+
 function getArqueoSemantic(diferencia) {
   const value = Number(diferencia || 0);
 
@@ -185,7 +195,7 @@ export default function ReportesScreen({ onBack }) {
     }
 
     const caja = cajas.find((item) => item._id === selectedCajaId);
-    return caja ? `${caja.nombre} (${caja.codigo})` : 'caja filtrada';
+    return caja ? `${cleanCajaDisplayName(caja.nombre)} (${caja.codigo})` : 'caja filtrada';
   }, [cajas, selectedCajaId]);
 
   const ventasDateRangeText = useMemo(() => {
@@ -455,7 +465,7 @@ export default function ReportesScreen({ onBack }) {
                     active && styles.filterChipTextActive,
                   ]}
                 >
-                  {caja.nombre}
+                  {cleanCajaDisplayName(caja.nombre)}
                 </Text>
               </Pressable>
             );
