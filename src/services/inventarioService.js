@@ -1,4 +1,4 @@
-import { apiGet } from './apiClient';
+import { apiGet, apiPatch } from './apiClient';
 
 export async function getInventarioDisponible({ sedeId, token }) {
   const headers = {};
@@ -22,4 +22,22 @@ export async function getInventarioDisponible({ sedeId, token }) {
     timeoutMs: 20000,
     headers,
   });
+}
+
+
+export async function updatePrecioDeVenta({ inventarioId, precioDeVenta, token }) {
+  const headers = {};
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  return apiPatch(
+    `/api/inventario/${inventarioId}/precio-venta`,
+    { precioDeVenta },
+    {
+      timeoutMs: 20000,
+      headers,
+    }
+  );
 }
