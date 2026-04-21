@@ -64,6 +64,25 @@ function extractSedeIdFromUser(usuario) {
   return '';
 }
 
+function getPrecioDeVenta(item) {
+  const value = Number(item?.precioDeVenta);
+
+  if (!Number.isFinite(value) || value < 0) {
+    return null;
+  }
+
+  return value;
+}
+
+function hasPrecioDeVenta(item) {
+  return getPrecioDeVenta(item) !== null;
+}
+
+function formatPrecioDeVenta(item) {
+  const precio = getPrecioDeVenta(item);
+  return precio === null ? 'sin configurar' : formatCurrency(precio);
+}
+
 export default function VentasScreen({ onBack }) {
   const [productoNombre, setProductoNombre] = useState('');
   const [unidadVenta, setUnidadVenta] = useState('kg');
@@ -287,6 +306,7 @@ export default function VentasScreen({ onBack }) {
       unidadBase: item.unidadBase,
       stockDisponible: item.stockDisponible,
       costoPromedio: item.costoPromedio,
+      precioDeVenta: item.precioDeVenta,
       activo: item.activo,
     };
   }
@@ -370,11 +390,21 @@ export default function VentasScreen({ onBack }) {
   }
 
   function handleSelectInventarioItem(item) {
+    const precioDeVenta = getPrecioDeVenta(item);
+
     setSelectedInventario(item);
     setProductoNombre(item.productoNombre);
     setUnidadVenta(item.unidadBase);
-    setPrecioUnitario(String(item.costoPromedio ?? ''));
+    setPrecioUnitario(precioDeVenta === null ? '' : String(precioDeVenta));
     addRecentSelection(item);
+
+    if (precioDeVenta === null) {
+      setFormError(
+        'Este producto no tiene precio de venta configurado. Pideselo al administrador en Productos.'
+      );
+      return;
+    }
+
     setFormError('');
 
     setTimeout(() => {
@@ -404,6 +434,15 @@ export default function VentasScreen({ onBack }) {
       return;
     }
 
+    if (!hasPrecioDeVenta(selectedInventario)) {
+      setFormError(
+        'Este producto no tiene precio de venta configurado. Pideselo al administrador en Productos.'
+      );
+      return;
+    }
+
+    const precioConfigurado = getPrecioDeVenta(selectedInventario);
+
     if (!Number.isFinite(cantidadNumero) || cantidadNumero <= 0) {
       setFormError('La cantidad debe ser un numero mayor que cero.');
       return;
@@ -416,6 +455,11 @@ export default function VentasScreen({ onBack }) {
 
     if (!Number.isFinite(precioNumero) || precioNumero <= 0) {
       setFormError('El precio desde inventario no es valido.');
+      return;
+    }
+
+    if (precioNumero !== precioConfigurado) {
+      setFormError('El precio debe salir del precio de venta configurado.');
       return;
     }
 
@@ -446,6 +490,7 @@ export default function VentasScreen({ onBack }) {
       unidadBase: selectedInventario.unidadBase,
       stockDisponible: selectedInventario.stockDisponible,
       costoPromedio: selectedInventario.costoPromedio,
+      precioDeVenta: selectedInventario.precioDeVenta,
       activo: selectedInventario.activo,
     };
 
@@ -799,7 +844,7 @@ export default function VentasScreen({ onBack }) {
                       isSelectedSuggestion && styles.suggestionMetaSelected,
                     ]}
                   >
-                    Stock: {item.stockDisponible} | Costo ref: {formatCurrency(item.costoPromedio || 0)}
+                    Stock: {item.stockDisponible} | Precio venta: {formatPrecioDeVenta(item)}
                   </Text>
                 </Pressable>
               );
@@ -837,7 +882,7 @@ export default function VentasScreen({ onBack }) {
               Stock disponible: {selectedInventario.stockDisponible}
             </Text>
             <Text style={styles.selectedBoxText}>
-              Precio desde inventario: {formatCurrency(selectedInventario.costoPromedio || 0)}
+              Precio desde inventario: {formatPrecioDeVenta(selectedInventario)}
             </Text>
           </View>
         ) : (
