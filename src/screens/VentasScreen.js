@@ -368,23 +368,6 @@ export default function VentasScreen({ onBack }) {
     hydrateCajaOperativaLabel();
   }, [bearerToken, sedeId, cajaId, authUser]);
 
-  return (
-              inventarioItem.productoNombre === recentItem.productoNombre &&
-              inventarioItem.unidadBase === recentItem.unidadBase
-            );
-          });
-
-          if (!updatedItem) {
-            return null;
-          }
-
-          return buildRecentEntry(updatedItem);
-        })
-        .filter(Boolean)
-        .slice(0, 6);
-    });
-  }
-
   function handleSelectInventarioItem(item) {
     setSelectedInventario(item);
     setProductoNombre(item.productoNombre);
