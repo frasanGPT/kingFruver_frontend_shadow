@@ -52,6 +52,11 @@ function buildPriceDraftMap(items = []) {
   return next;
 }
 
+function isValidPrecioDeVentaInput(value) {
+  const parsed = parsePriceInput(value);
+  return Number.isFinite(parsed) && parsed > 0;
+}
+
 export default function ProductosScreen({ onBack }) {
   const [token, setToken] = useState('');
   const [sedeId, setSedeId] = useState('');
@@ -425,13 +430,20 @@ export default function ProductosScreen({ onBack }) {
                       style={styles.input}
                     />
 
+                    {priceDrafts[item._id] !== '' && !isValidPrecioDeVentaInput(priceDrafts[item._id]) ? (
+                      <Text style={styles.inlineValidationText}>
+                        El precio de venta debe ser mayor a 0.
+                      </Text>
+                    ) : null}
+
                     <Pressable
                       style={[
                         styles.savePriceButton,
-                        savingPrecioId === item._id && styles.savePriceButtonDisabled,
+                        (savingPrecioId === item._id || !isValidPrecioDeVentaInput(priceDrafts[item._id])) &&
+                          styles.savePriceButtonDisabled,
                       ]}
                       onPress={() => handleGuardarPrecioDeVenta(item)}
-                      disabled={savingPrecioId === item._id}
+                      disabled={savingPrecioId === item._id || !isValidPrecioDeVentaInput(priceDrafts[item._id])}
                     >
                       <Text style={styles.savePriceButtonText}>
                         {savingPrecioId === item._id ? 'Guardando...' : 'Guardar precio de venta'}
@@ -588,6 +600,11 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 14,
     fontWeight: '700',
+  },
+  inlineValidationText: {
+    color: '#b91c1c',
+    fontSize: 13,
+    marginBottom: 10,
   },
   productHeader: {
     width: '100%',
