@@ -309,7 +309,23 @@ export default function VentasScreen({ onBack }) {
       return current
         .map((recentItem) => {
           const updatedItem = nextInventarioItems.find((inventarioItem) => {
-            useEffect(() => {
+            return (
+              inventarioItem.productoNombre === recentItem.productoNombre &&
+              inventarioItem.unidadBase === recentItem.unidadBase
+            );
+          });
+
+          if (!updatedItem) {
+            return null;
+          }
+
+          return buildRecentEntry(updatedItem);
+        })
+        .filter(Boolean);
+    });
+  }
+
+  useEffect(() => {
     async function hydrateCajaOperativaLabel() {
       if (!String(cajaId || '').trim()) {
         if ((authUser?.email || '') === 'admin.shadow@kingfruver.local') {
