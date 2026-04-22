@@ -551,6 +551,21 @@ export default function ReportesScreen({ onBack }) {
             <Text style={styles.metricBlock}>
               Total: {formatCurrency(ultimaVenta.total || 0)}
             </Text>
+            <Text style={styles.metricBlock}>
+              ventaId: {ultimaVenta._id || 'sin valor'}
+            </Text>
+
+            {Array.isArray(ultimaVenta.items) && ultimaVenta.items.length > 0 ? (
+              <View style={styles.detailListBox}>
+                <Text style={styles.detailListTitle}>Detalle de la venta</Text>
+
+                {ultimaVenta.items.map((item, index) => (
+                  <Text key={`ultima-venta-item-${index}`} style={styles.metricBlock}>
+                    {item.productoNombre}: {item.cantidad} {item.unidadVenta} x {formatCurrency(item.precioUnitario)} = {formatCurrency(item.subtotal)}
+                  </Text>
+                ))}
+              </View>
+            ) : null}
           </>
         )}
       </View>
@@ -779,6 +794,21 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     color: '#111827',
     marginBottom: 6,
+  },
+  detailListBox: {
+    width: '100%',
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 10,
+    padding: 12,
+    marginTop: 10,
+  },
+  detailListTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 8,
   },
   semanticBoxBase: {
     width: '100%',
