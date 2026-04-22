@@ -1022,7 +1022,29 @@ export default function VentasScreen({ onBack }) {
           </View>
         </View>
 
-        <Text style={styles.summaryTotal}>Total: {formatCurrency(totalVenta)}</Text>
+        <View style={styles.summaryRow}>
+          <View style={styles.summaryChip}>
+            <Text style={styles.summaryChipLabel}>Caja</Text>
+            <Text style={styles.summaryChipValue}>{cajaOperativaLabel}</Text>
+          </View>
+
+          <View style={styles.summaryChip}>
+            <Text style={styles.summaryChipLabel}>Total</Text>
+            <Text style={styles.summaryChipValue}>{formatCurrency(totalVenta)}</Text>
+          </View>
+        </View>
+
+        {items.length === 0 ? (
+          <Text style={styles.cardText}>Todavia no hay items para resumir.</Text>
+        ) : (
+          <View>
+            {items.map((item) => (
+              <Text key={`summary-${item.id}`} style={styles.cardText}>
+                {item.productoNombre}: {item.cantidad} {item.unidadVenta} x {formatCurrency(item.precioUnitario)} = {formatCurrency(item.subtotal)}
+              </Text>
+            ))}
+          </View>
+        )}
 
         <Pressable style={styles.clearCartButton} onPress={handleVaciarCarritoLocal}>
           <Text style={styles.clearCartButtonText}>Vaciar carrito local</Text>
