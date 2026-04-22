@@ -67,7 +67,7 @@ function extractSedeIdFromUser(usuario) {
 function getPrecioDeVenta(item) {
   const value = Number(item?.precioDeVenta);
 
-  if (!Number.isFinite(value) || value < 0) {
+  if (!Number.isFinite(value) || value <= 0) {
     return null;
   }
 

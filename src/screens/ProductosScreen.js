@@ -252,8 +252,8 @@ export default function ProductosScreen({ onBack }) {
 
     const precioDeVenta = parsePriceInput(priceDrafts[item._id]);
 
-    if (!Number.isFinite(precioDeVenta) || precioDeVenta < 0) {
-      setScreenResult('El precio de venta debe ser un número mayor o igual a 0.');
+    if (!Number.isFinite(precioDeVenta) || precioDeVenta <= 0) {
+      setScreenResult('El precio de venta debe ser un número mayor a 0.');
       return;
     }
 
