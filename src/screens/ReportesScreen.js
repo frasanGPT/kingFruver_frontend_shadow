@@ -608,10 +608,7 @@ export default function ReportesScreen({ onBack }) {
               Fecha: {formatDateTime(ultimoArqueo.fechaArqueo || ultimoArqueo.createdAt)}
             </Text>
             <Text style={styles.metricBlock}>
-              Esperado efectivo: {formatCurrency(ultimoArqueo.esperadoEfectivo || 0)}
-            </Text>
-            <Text style={styles.metricBlock}>
-              Contado efectivo: {formatCurrency(ultimoArqueo.contadoEfectivo || 0)}
+              arqueoId: {ultimoArqueo._id || 'sin valor'}
             </Text>
 
             <StatusBadge
@@ -619,15 +616,28 @@ export default function ReportesScreen({ onBack }) {
               variant={arqueoSemantic.variant}
             />
 
-            <Text style={styles.metricBlock}>
-              Transferencia: {formatCurrency(ultimoArqueo.totalTransferencia || 0)}
-            </Text>
-            <Text style={styles.metricBlock}>
-              Mixto: {formatCurrency(ultimoArqueo.totalMixto || 0)}
-            </Text>
-            <Text style={styles.metricBlock}>
-              Otro: {formatCurrency(ultimoArqueo.totalOtro || 0)}
-            </Text>
+            <View style={styles.detailListBox}>
+              <Text style={styles.detailListTitle}>Detalle del arqueo</Text>
+
+              <Text style={styles.metricBlock}>
+                Esperado efectivo: {formatCurrency(ultimoArqueo.esperadoEfectivo || 0)}
+              </Text>
+              <Text style={styles.metricBlock}>
+                Contado efectivo: {formatCurrency(ultimoArqueo.contadoEfectivo || 0)}
+              </Text>
+              <Text style={styles.metricBlock}>
+                Diferencia: {formatCurrency((ultimoArqueo.contadoEfectivo || 0) - (ultimoArqueo.esperadoEfectivo || 0))}
+              </Text>
+              <Text style={styles.metricBlock}>
+                Transferencia: {formatCurrency(ultimoArqueo.totalTransferencia || 0)}
+              </Text>
+              <Text style={styles.metricBlock}>
+                Mixto: {formatCurrency(ultimoArqueo.totalMixto || 0)}
+              </Text>
+              <Text style={styles.metricBlock}>
+                Otro: {formatCurrency(ultimoArqueo.totalOtro || 0)}
+              </Text>
+            </View>
           </>
         )}
       </View>
