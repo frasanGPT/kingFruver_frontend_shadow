@@ -480,10 +480,10 @@ export default function ReportesScreen({ onBack }) {
             Caja: {selectedCajaName}
           </Text>
           <Text style={styles.activeFiltersText}>
-            Método: {selectedMetodoPago}
+            Método de pago: {selectedMetodoPago}
           </Text>
           <Text style={styles.activeFiltersText}>
-            Token: {token ? 'si' : 'no'}
+            Sesión activa: {token ? 'sí' : 'no'}
           </Text>
         </View>
 

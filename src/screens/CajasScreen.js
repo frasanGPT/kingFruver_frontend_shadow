@@ -27,7 +27,7 @@ function buildOpenActionText(caja, notasAccion) {
   return [
     'Caja abierta con exito',
     `Nombre: ${caja?.nombre || 'sin valor'}`,
-    `Codigo: ${caja?.codigo || 'sin valor'}`,
+    `Código: ${caja?.codigo || 'sin valor'}`,
     `Estado final: ${caja?.estado || 'sin valor'}`,
     `Saldo apertura: ${formatCurrency(caja?.saldoApertura || 0)}`,
     `Fecha apertura: ${formatDateTime(caja?.fechaApertura)}`,
@@ -43,7 +43,7 @@ function buildCloseActionText(caja, arqueo, notasAccion) {
   return [
     'Caja cerrada con arqueo',
     `Nombre: ${caja?.nombre || 'sin valor'}`,
-    `Codigo: ${caja?.codigo || 'sin valor'}`,
+    `Código: ${caja?.codigo || 'sin valor'}`,
     `Estado final: ${caja?.estado || 'sin valor'}`,
     `Fecha cierre: ${formatDateTime(caja?.fechaCierre)}`,
     `Saldo apertura: ${formatCurrency(arqueo?.saldoApertura || 0)}`,
@@ -91,11 +91,11 @@ export default function CajasScreen({ onBack }) {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [screenResult, setScreenResult] = useState('Cargando cajas...');
-  const [actionResult, setActionResult] = useState('Todavia no has ejecutado una accion real de caja.');
+  const [actionResult, setActionResult] = useState('Todavía no has ejecutado una acción real de caja.');
   const [efectivo, setEfectivo] = useState('0');
   const [notasAccion, setNotasAccion] = useState('');
   const [localResult, setLocalResult] = useState(
-    'Todavia no has simulado una actualizacion local de caja.'
+    'Todavía no has simulado una actualizacion local de caja.'
   );
 
   const selectedCaja = useMemo(() => {
@@ -308,7 +308,7 @@ export default function CajasScreen({ onBack }) {
     setLocalResult(
       [
         `Caja seleccionada: ${selectedCaja.nombre}`,
-        `Codigo: ${selectedCaja.codigo}`,
+        `Código: ${selectedCaja.codigo}`,
         `Estado: ${selectedCaja.estado}`,
         `Apertura base: ${formatCurrency(selectedCaja.saldoApertura || 0)}`,
         `Total efectivo actual: ${formatCurrency(selectedCaja.totalEfectivo || 0)}`,
@@ -356,7 +356,7 @@ export default function CajasScreen({ onBack }) {
                   {caja.nombre}
                 </Text>
                 <Text style={[styles.selectorText, isSelected && styles.selectorTextActive]}>
-                  Codigo: {caja.codigo}
+                  Código: {caja.codigo}
                 </Text>
                 <View style={styles.inlineBadgeRow}>
                   <Text style={[styles.selectorText, isSelected && styles.selectorTextActive]}>
@@ -382,7 +382,7 @@ export default function CajasScreen({ onBack }) {
         {selectedCaja ? (
           <>
             <Text style={styles.cardText}>Nombre: {selectedCaja.nombre}</Text>
-            <Text style={styles.cardText}>Codigo: {selectedCaja.codigo}</Text>
+            <Text style={styles.cardText}>Código: {selectedCaja.codigo}</Text>
             <View style={styles.inlineBadgeRow}>
               <Text style={styles.cardText}>Estado:</Text>
               <StatusBadge
@@ -412,11 +412,11 @@ export default function CajasScreen({ onBack }) {
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Accion operativa actual</Text>
+        <Text style={styles.cardTitle}>Acción operativa actual</Text>
 
         {!selectedCaja ? (
           <Text style={styles.cardText}>
-            Selecciona una caja para ver la accion disponible.
+            Selecciona una caja para ver la acción disponible.
           </Text>
         ) : null}
 
@@ -524,7 +524,7 @@ export default function CajasScreen({ onBack }) {
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Resultado de accion real</Text>
+        <Text style={styles.cardTitle}>Resultado de acción real</Text>
         <Text style={styles.resultText}>{actionResult}</Text>
       </View>
 

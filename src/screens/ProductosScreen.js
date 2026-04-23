@@ -251,7 +251,7 @@ export default function ProductosScreen({ onBack }) {
     }
 
     if (!token) {
-      setScreenResult('No hay token activo. Vuelve a iniciar sesión.');
+      setScreenResult('No hay sesión activa. Vuelve a iniciar sesión.');
       return;
     }
 
@@ -355,7 +355,7 @@ export default function ProductosScreen({ onBack }) {
 
         <Text style={styles.helperText}>
           Unidades detectadas desde inventario: {detectedUnitsText}{'\n'}
-          Token cargado: {token ? 'si' : 'no'}
+          Sesión activa: {token ? 'sí' : 'no'}
         </Text>
       </View>
 

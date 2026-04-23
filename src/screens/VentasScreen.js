@@ -100,21 +100,21 @@ export default function VentasScreen({ onBack }) {
   const [cajaOperativaLabel, setCajaOperativaLabel] = useState('sin caja');
   const [bearerToken, setBearerToken] = useState('');
   const [authUser, setAuthUser] = useState(null);
-  const [authResult, setAuthResult] = useState('Todavia no has iniciado sesion.');
+  const [authResult, setAuthResult] = useState('Todavía no has iniciado sesión.');
   const [loggingIn, setLoggingIn] = useState(false);
   const [restoringSession, setRestoringSession] = useState(true);
   const [payloadPreview, setPayloadPreview] = useState('');
-  const [carritoResult, setCarritoResult] = useState('Todavia no has intentado crear el carrito real.');
+  const [carritoResult, setCarritoResult] = useState('Todavía no has intentado crear el carrito real.');
   const [creatingCarrito, setCreatingCarrito] = useState(false);
   const [carritoCreadoId, setCarritoCreadoId] = useState('');
-  const [carritosQueryResult, setCarritosQueryResult] = useState('Todavia no has consultado carritos.');
+  const [carritosQueryResult, setCarritosQueryResult] = useState('Todavía no has consultado carritos.');
   const [loadingCarritos, setLoadingCarritos] = useState(false);
-  const [ventaResult, setVentaResult] = useState('Todavia no has intentado crear la venta real.');
+  const [ventaResult, setVentaResult] = useState('Todavía no has intentado crear la venta real.');
   const [creatingVenta, setCreatingVenta] = useState(false);
   const [ventaCreadaId, setVentaCreadaId] = useState('');
   const [lastSaleSummary, setLastSaleSummary] = useState(null);
   const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
-  const [inventarioResult, setInventarioResult] = useState('Todavia no has consultado inventario disponible.');
+  const [inventarioResult, setInventarioResult] = useState('Todavía no has consultado inventario disponible.');
   const [loadingInventario, setLoadingInventario] = useState(false);
   const [inventarioItems, setInventarioItems] = useState([]);
   const [recentSelections, setRecentSelections] = useState([]);
@@ -141,7 +141,7 @@ export default function VentasScreen({ onBack }) {
         setMetodoPago(session.metodoPago || 'efectivo');
         setRecentSelections(session.recentSelections || []);
         setAuthResult(
-          `Sesion restaurada: ${restoredUser?.email || 'usuario'}`
+          `Sesión restaurada: ${restoredUser?.email || 'usuario'}`
         );
       } catch (error) {
         setAuthResult('No se pudo restaurar la sesión guardada.');
@@ -572,8 +572,8 @@ export default function VentasScreen({ onBack }) {
     setCarritoCreadoId('');
     setVentaCreadaId('');
     setPayloadPreview('');
-    setCarritoResult('Todavia no has intentado crear el carrito real.');
-    setVentaResult('Todavia no has intentado crear la venta real.');
+    setCarritoResult('Todavía no has intentado crear el carrito real.');
+    setVentaResult('Todavía no has intentado crear la venta real.');
     setLastSaleSummary(null);
     resetForm();
   }
@@ -881,7 +881,7 @@ export default function VentasScreen({ onBack }) {
               Stock disponible: {selectedInventario.stockDisponible}
             </Text>
             <Text style={styles.selectedBoxText}>
-              Precio desde inventario: {formatPrecioDeVenta(selectedInventario)}
+              Precio de venta aplicado: {formatPrecioDeVenta(selectedInventario)}
             </Text>
           </View>
         ) : (
@@ -925,13 +925,13 @@ export default function VentasScreen({ onBack }) {
 
         {editingItemId ? (
           <Pressable style={styles.cancelEditButton} onPress={handleCancelarEdicion}>
-            <Text style={styles.cancelEditButtonText}>Cancelar edicion</Text>
+            <Text style={styles.cancelEditButtonText}>Cancelar edición</Text>
           </Pressable>
         ) : null}
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Notas y metodo de pago</Text>
+        <Text style={styles.cardTitle}>Notas y método de pago</Text>
         <TextInput
           value={notas}
           onChangeText={setNotas}
@@ -1002,7 +1002,7 @@ export default function VentasScreen({ onBack }) {
           onPress={() => setShowTechnicalDetails((current) => !current)}
         >
           <Text style={styles.technicalToggleButtonText}>
-            {showTechnicalDetails ? 'Ocultar detalles tecnicos' : 'Mostrar detalles tecnicos'}
+            {showTechnicalDetails ? 'Ocultar detalles técnicos' : 'Mostrar detalles técnicos'}
           </Text>
         </Pressable>
       </View>
@@ -1017,7 +1017,7 @@ export default function VentasScreen({ onBack }) {
           </View>
 
           <View style={styles.summaryChip}>
-            <Text style={styles.summaryChipLabel}>Metodo</Text>
+            <Text style={styles.summaryChipLabel}>Método</Text>
             <Text style={styles.summaryChipValue}>{metodoPago}</Text>
           </View>
         </View>
@@ -1035,7 +1035,7 @@ export default function VentasScreen({ onBack }) {
         </View>
 
         {items.length === 0 ? (
-          <Text style={styles.cardText}>Todavia no hay items para resumir.</Text>
+          <Text style={styles.cardText}>Todavía no hay items para resumir.</Text>
         ) : (
           <View>
             {items.map((item) => (
@@ -1066,7 +1066,7 @@ export default function VentasScreen({ onBack }) {
         ) : null}
 
         {items.length === 0 ? (
-          <Text style={styles.emptyText}>Todavia no has agregado items.</Text>
+          <Text style={styles.emptyText}>Todavía no has agregado items.</Text>
         ) : (
           items.map((item) => (
             <View key={item.id} style={styles.itemRow}>
@@ -1109,7 +1109,7 @@ export default function VentasScreen({ onBack }) {
           <Text style={styles.successBannerTitle}>Venta creada con exito</Text>
           <Text style={styles.successBannerText}>ventaId: {lastSaleSummary.ventaId}</Text>
           <Text style={styles.successBannerText}>Caja: {cajaOperativaLabel}</Text>
-          <Text style={styles.successBannerText}>metodoPago: {lastSaleSummary.metodoPago}</Text>
+          <Text style={styles.successBannerText}>Método de pago aplicado: {lastSaleSummary.metodoPago}</Text>
           <Text style={styles.successBannerText}>total: {formatCurrency(lastSaleSummary.totalVenta)}</Text>
           <Text style={styles.successBannerText}>items: {lastSaleSummary.itemsCount}</Text>
           <Text style={styles.successBannerText}>
@@ -1123,7 +1123,7 @@ export default function VentasScreen({ onBack }) {
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Payload local y contratos reales</Text>
             <Text style={styles.payloadText}>
-              {payloadPreview || 'Todavia no has preparado el payload.'}
+              {payloadPreview || 'Todavía no has preparado el payload.'}
             </Text>
           </View>
 
