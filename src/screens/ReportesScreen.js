@@ -133,9 +133,7 @@ export default function ReportesScreen({ onBack }) {
       return (
         sedeDesdeVentas.nombre ||
         sedeDesdeVentas.codigo ||
-        sedeDesdeVentas._id ||
-        sedeId ||
-        'sin sede'
+        'Sede configurada'
       );
     }
 
@@ -144,24 +142,20 @@ export default function ReportesScreen({ onBack }) {
       return (
         sedeDesdeArqueos.nombre ||
         sedeDesdeArqueos.codigo ||
-        sedeDesdeArqueos._id ||
-        sedeId ||
-        'sin sede'
+        'Sede configurada'
       );
     }
 
-    const sedeDesdeCajas = cajas.find((caja) => caja?.sedeId)?.sedeId;
-    if (sedeDesdeCajas) {
-      return (
-        sedeDesdeCajas.nombre ||
-        sedeDesdeCajas.codigo ||
-        sedeDesdeCajas._id ||
-        sedeId ||
-        'sin sede'
-      );
-    }
+      const sedeDesdeCajas = cajas.find((caja) => caja?.sedeId)?.sedeId;
+      if (sedeDesdeCajas) {
+        return (
+          sedeDesdeCajas.nombre ||
+          sedeDesdeCajas.codigo ||
+          'Sede configurada'
+        );
+      }
 
-    return sedeId || 'sin sede';
+      return sedeId ? 'Sede configurada' : 'sin sede';
   }, [ventas, arqueos, cajas, sedeId]);
 
   const ultimaActividad = useMemo(() => {
@@ -299,13 +293,11 @@ export default function ReportesScreen({ onBack }) {
           },
           effectiveToken
         ),
-        getCajas(
-          {
-            sedeId: effectiveSedeId,
-            activo: true,
-          },
-          effectiveToken
-        ),
+        getCajas({
+          sedeId: effectiveSedeId,
+          activo: true,
+          token: effectiveToken,
+        }),
       ]);
 
       const ventasRows = ventasResponse?.data || [];
