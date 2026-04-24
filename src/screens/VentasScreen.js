@@ -1385,7 +1385,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   queryButton: {
-    backgroundColor: '#2563eb',
+    backgroundColor: '#1f6feb',
     paddingVertical: 14,
     paddingHorizontal: 18,
     borderRadius: 10,
