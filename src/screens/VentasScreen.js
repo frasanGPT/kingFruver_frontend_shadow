@@ -98,6 +98,8 @@ export default function VentasScreen({ onBack }) {
   const [usuarioId, setUsuarioId] = useState('');
   const [cajaId, setCajaId] = useState(SHADOW_DEFAULT_CAJA_ID);
   const [cajaOperativaLabel, setCajaOperativaLabel] = useState('sin caja');
+  const [cajaRealAbierta, setCajaRealAbierta] = useState(false);
+  const [cajaEstadoOperativo, setCajaEstadoOperativo] = useState('sin validar');
   const [bearerToken, setBearerToken] = useState('');
   const [authUser, setAuthUser] = useState(null);
   const [authResult, setAuthResult] = useState('Todavía no has iniciado sesión.');
@@ -348,7 +350,10 @@ export default function VentasScreen({ onBack }) {
   useEffect(() => {
     async function hydrateCajaOperativaLabel() {
       if (!String(cajaId || '').trim()) {
-        if ((authUser?.email || '') === 'admin.shadow@kingfruver.local') {
+        setCajaRealAbierta(false);
+        setCajaEstadoOperativo('sin caja');
+
+        if ((authUser?.email || '') === SHADOW_ADMIN_EMAIL) {
           setCajaOperativaLabel('Caja Shadow (CJSH01)');
           return;
         }
@@ -358,6 +363,8 @@ export default function VentasScreen({ onBack }) {
       }
 
       if (!String(bearerToken || '').trim() || !String(sedeId || '').trim()) {
+        setCajaRealAbierta(false);
+        setCajaEstadoOperativo('sin validar');
         setCajaOperativaLabel('configurada');
         return;
       }
@@ -374,13 +381,22 @@ export default function VentasScreen({ onBack }) {
 
         if (match) {
           const nombre = match.nombre || 'Caja';
-          const codigo = match.codigo ? ' (' + match.codigo + ')' : '';
+          const codigo = match.codigo ? ` (${match.codigo})` : '';
+          const estadoNormalizado = String(match.estado || '').trim().toLowerCase();
+          const abierta = estadoNormalizado === 'abierta';
+
           setCajaOperativaLabel(nombre + codigo);
+          setCajaRealAbierta(abierta);
+          setCajaEstadoOperativo(abierta ? 'abierta' : (match.estado || 'cerrada'));
           return;
         }
 
+        setCajaRealAbierta(false);
+        setCajaEstadoOperativo('no encontrada');
         setCajaOperativaLabel('configurada');
       } catch (error) {
+        setCajaRealAbierta(false);
+        setCajaEstadoOperativo('sin validar');
         setCajaOperativaLabel('configurada');
       }
     }
@@ -632,6 +648,11 @@ export default function VentasScreen({ onBack }) {
       return;
     }
 
+    if (!cajaRealAbierta) {
+      setCarritoResult('No hay una caja real abierta para esta sede. Ve a Cajas, abre una caja y vuelve a Ventas.');
+      return;
+    }
+
     if (!sedeId.trim()) {
       setCarritoResult('Debes tener un sedeId valido antes de crear el carrito.');
       return;
@@ -645,7 +666,6 @@ export default function VentasScreen({ onBack }) {
     try {
       setCreatingCarrito(true);
       setCarritoResult('Creando carrito real en shadow...');
-
       const payload = buildContratoCarritoReal();
       const response = await createCarrito(payload, bearerToken.trim());
       const createdId = response?.data?._id || '';
@@ -696,6 +716,11 @@ export default function VentasScreen({ onBack }) {
   async function handleCrearVentaReal() {
     if (!bearerToken.trim()) {
       setVentaResult('Primero valida acceso en Home para crear la venta real.');
+      return;
+    }
+
+    if (!cajaRealAbierta) {
+      setVentaResult('No hay una caja real abierta para esta sede. Ve a Cajas, abre una caja y vuelve a Ventas.');
       return;
     }
 
@@ -758,10 +783,13 @@ export default function VentasScreen({ onBack }) {
           Usuario: {authUser?.email || 'sin usuario'}
         </Text>
         <Text style={styles.cardText}>
-          Sede: {(authUser?.sedeId?.nombre || authUser?.sedeId?.codigo || ((sedeId ? 'configurada' : 'sin sede') === 'configurada' && (authUser?.email || '') === 'admin.shadow@kingfruver.local' ? 'Sede Shadow (SH01)' : (sedeId ? 'configurada' : 'sin sede')))}
+          Sede: {(authUser?.sedeId?.nombre || authUser?.sedeId?.codigo || ((sedeId ? 'configurada' : 'sin sede') === 'configurada' && (authUser?.email || '') === SHADOW_ADMIN_EMAIL ? 'Sede Shadow (SH01)' : (sedeId ? 'configurada' : 'sin sede')))}
         </Text>
         <Text style={styles.cardText}>
-          Caja operativa: {(cajaOperativaLabel === 'sin caja' && (authUser?.email || '') === 'admin.shadow@kingfruver.local') ? 'Caja Shadow (CJSH01)' : cajaOperativaLabel}
+          Caja operativa: {(cajaOperativaLabel === 'sin caja' && (authUser?.email || '') === SHADOW_ADMIN_EMAIL) ? 'Caja Shadow (CJSH01)' : cajaOperativaLabel}
+        </Text>
+        <Text style={styles.cardText}>
+          Estado de caja real: {cajaEstadoOperativo}
         </Text>
         <Text style={styles.cardText}>
           Método de pago: {metodoPago}
@@ -967,7 +995,20 @@ export default function VentasScreen({ onBack }) {
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Flujo real</Text>
 
-        <Pressable style={styles.realButton} onPress={handleCrearCarritoReal}>
+        {!cajaRealAbierta ? (
+          <Text style={styles.cardText}>
+            No hay una caja abierta real para esta sede. Ve a Cajas, abre una caja y vuelve a Ventas.
+          </Text>
+        ) : null}
+
+        <Pressable
+          style={[
+            styles.realButton,
+            (!cajaRealAbierta || creatingCarrito) && styles.actionDisabledButton,
+          ]}
+          onPress={handleCrearCarritoReal}
+          disabled={!cajaRealAbierta || creatingCarrito}
+        >
           <Text style={styles.realButtonText}>Crear carrito real en shadow</Text>
         </Pressable>
 
@@ -983,7 +1024,14 @@ export default function VentasScreen({ onBack }) {
 
         {loadingCarritos ? <ActivityIndicator size="large" style={styles.loader} /> : null}
 
-        <Pressable style={styles.saleButton} onPress={handleCrearVentaReal}>
+        <Pressable
+          style={[
+            styles.saleButton,
+            (!cajaRealAbierta || creatingVenta) && styles.actionDisabledButton,
+          ]}
+          onPress={handleCrearVentaReal}
+          disabled={!cajaRealAbierta || creatingVenta}
+        >
           <Text style={styles.saleButtonText}>Crear venta real en shadow</Text>
         </Pressable>
 
@@ -1163,6 +1211,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     marginBottom: 14,
+  },
+  cardText: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: '#4b5563',
+    marginBottom: 6,
   },
   label: {
     fontSize: 14,
@@ -1412,6 +1466,9 @@ const styles = StyleSheet.create({
   loader: {
     marginTop: 12,
   },
+  actionDisabledButton: {
+    opacity: 0.55,
+  },
   cancelEditButton: {
     backgroundColor: '#e5e7eb',
     paddingVertical: 12,
@@ -1437,6 +1494,21 @@ const styles = StyleSheet.create({
   secondaryButtonText: {
     color: '#ffffff',
     fontSize: 16,
+    fontWeight: '600',
+  },
+  technicalToggleButton: {
+    width: '100%',
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#d0d7de',
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  technicalToggleButtonText: {
+    color: '#111827',
+    fontSize: 15,
     fontWeight: '600',
   },
   summaryText: {
