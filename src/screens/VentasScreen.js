@@ -13,6 +13,7 @@ import { createVenta } from '../services/ventaService';
 import { getInventarioDisponible } from '../services/inventarioService';
 import { loadSession, saveSession } from '../services/sessionService';
 import { getCajas } from '../services/cajaService';
+import { getRoleCode } from '../utils/accessControl';
 
 const SHADOW_DEFAULT_SEDE_ID = '69aa0d3cd908c9f5f152fc2c';
 const SHADOW_DEFAULT_CAJA_ID = '69aecd84319a254c552951a8';
@@ -110,6 +111,7 @@ export default function VentasScreen({ onBack }) {
   const [creatingCarrito, setCreatingCarrito] = useState(false);
   const [carritoCreadoId, setCarritoCreadoId] = useState('');
   const [carritosQueryResult, setCarritosQueryResult] = useState('Todavía no has consultado carritos.');
+  const [carritosActivos, setCarritosActivos] = useState([]);
   const [loadingCarritos, setLoadingCarritos] = useState(false);
   const [ventaResult, setVentaResult] = useState('Todavía no has intentado crear la venta real.');
   const [creatingVenta, setCreatingVenta] = useState(false);
@@ -121,6 +123,8 @@ export default function VentasScreen({ onBack }) {
   const [inventarioItems, setInventarioItems] = useState([]);
   const [recentSelections, setRecentSelections] = useState([]);
   const cantidadInputRef = useRef(null);
+  const roleCode = getRoleCode(authUser);
+  const isCajero = roleCode === 'cajero';
 
   useEffect(() => {
     async function restoreSession() {
@@ -700,13 +704,16 @@ export default function VentasScreen({ onBack }) {
         {
           estado: 'activo',
           sedeId: sedeId.trim(),
-          ...(usuarioId.trim() ? { usuarioId: usuarioId.trim() } : {}),
+          ...(!isCajero && usuarioId.trim() ? { usuarioId: usuarioId.trim() } : {}),
         },
         bearerToken.trim()
       );
 
-      setCarritosQueryResult(JSON.stringify(response, null, 2));
+      const activos = Array.isArray(response?.data) ? response.data : [];
+      setCarritosActivos(activos);
+      setCarritosQueryResult(`Carritos activos encontrados: ${activos.length}`);
     } catch (error) {
+      setCarritosActivos([]);
       setCarritosQueryResult(`Error: ${error.message}`);
     } finally {
       setLoadingCarritos(false);
@@ -725,7 +732,7 @@ export default function VentasScreen({ onBack }) {
     }
 
     if (!carritoCreadoId.trim()) {
-      setVentaResult('Primero debes crear el carrito real.');
+      setVentaResult('Primero debes seleccionar un carrito activo.');
       return;
     }
 
@@ -747,6 +754,23 @@ export default function VentasScreen({ onBack }) {
 
       const response = await createVenta(payload, bearerToken.trim());
       const createdId = response?.data?._id || '';
+      const ventaCreada = response?.data || {};
+      const carritoSeleccionado = carritosActivos.find(
+        (carrito) => carrito?._id === carritoCreadoId.trim()
+      );
+      const carritoVenta =
+        ventaCreada?.carritoId && typeof ventaCreada.carritoId === 'object'
+          ? ventaCreada.carritoId
+          : carritoSeleccionado || null;
+      const ventaItems = Array.isArray(carritoVenta?.items) ? carritoVenta.items : items;
+      const ventaTotal = Number(ventaCreada?.total ?? carritoVenta?.total ?? totalVenta);
+      const productosResumen = ventaItems.map((item) => {
+        const nombre = item?.productoNombre || item?.nombre || 'Producto';
+        const cantidadItem = Number(item?.cantidad);
+        const unidadItem = item?.unidadVenta || item?.unidad || 'und';
+        const cantidadTexto = Number.isFinite(cantidadItem) ? cantidadItem : 0;
+        return `${nombre} (${cantidadTexto} ${unidadItem})`;
+      });
 
       setVentaCreadaId(createdId);
       setVentaResult(JSON.stringify(response, null, 2));
@@ -755,9 +779,9 @@ export default function VentasScreen({ onBack }) {
         ventaId: createdId,
         cajaId: cajaId.trim(),
         metodoPago,
-        totalVenta,
-        itemsCount: items.length,
-        productos: items.map((item) => `${item.productoNombre} (${item.cantidad} ${item.unidadVenta})`),
+        totalVenta: Number.isFinite(ventaTotal) ? ventaTotal : 0,
+        itemsCount: ventaItems.length,
+        productos: productosResumen,
       });
       setItems([]);
       setCarritoCreadoId('');
@@ -796,6 +820,7 @@ export default function VentasScreen({ onBack }) {
         </Text>
       </View>
 
+      {!isCajero ? (
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Productos disponibles</Text>
 
@@ -879,7 +904,9 @@ export default function VentasScreen({ onBack }) {
           </View>
         ) : null}
       </View>
+      ) : null}
 
+      {!isCajero ? (
       <View style={styles.card}>
         <Text style={styles.cardTitle}>
           {editingItemId ? 'Editar item' : 'Agregar item'}
@@ -957,6 +984,7 @@ export default function VentasScreen({ onBack }) {
           </Pressable>
         ) : null}
       </View>
+      ) : null}
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Notas y método de pago</Text>
@@ -987,9 +1015,11 @@ export default function VentasScreen({ onBack }) {
           })}
         </View>
 
-        <Pressable style={styles.prepareButton} onPress={handlePrepararPayload}>
-          <Text style={styles.prepareButtonText}>Preparar payload local</Text>
-        </Pressable>
+        {!isCajero ? (
+          <Pressable style={styles.prepareButton} onPress={handlePrepararPayload}>
+            <Text style={styles.prepareButtonText}>Preparar payload local</Text>
+          </Pressable>
+        ) : null}
       </View>
 
       <View style={styles.card}>
@@ -1001,21 +1031,25 @@ export default function VentasScreen({ onBack }) {
           </Text>
         ) : null}
 
-        <Pressable
-          style={[
-            styles.realButton,
-            (!cajaRealAbierta || creatingCarrito) && styles.actionDisabledButton,
-          ]}
-          onPress={handleCrearCarritoReal}
-          disabled={!cajaRealAbierta || creatingCarrito}
-        >
-          <Text style={styles.realButtonText}>Crear carrito real en shadow</Text>
-        </Pressable>
+        {!isCajero ? (
+          <>
+            <Pressable
+              style={[
+                styles.realButton,
+                (!cajaRealAbierta || creatingCarrito) && styles.actionDisabledButton,
+              ]}
+              onPress={handleCrearCarritoReal}
+              disabled={!cajaRealAbierta || creatingCarrito}
+            >
+              <Text style={styles.realButtonText}>Crear carrito real en shadow</Text>
+            </Pressable>
 
-        {creatingCarrito ? <ActivityIndicator size="large" style={styles.loader} /> : null}
+            {creatingCarrito ? <ActivityIndicator size="large" style={styles.loader} /> : null}
 
-        {carritoCreadoId ? (
-          <Text style={styles.successText}>carritoId creado: {carritoCreadoId}</Text>
+            {carritoCreadoId ? (
+              <Text style={styles.successText}>carritoId creado: {carritoCreadoId}</Text>
+            ) : null}
+          </>
         ) : null}
 
         <Pressable style={styles.queryButton} onPress={handleConsultarCarritos}>
@@ -1023,6 +1057,43 @@ export default function VentasScreen({ onBack }) {
         </Pressable>
 
         {loadingCarritos ? <ActivityIndicator size="large" style={styles.loader} /> : null}
+
+        {carritosActivos.length > 0 ? (
+          <View style={styles.suggestionsBox}>
+            <Text style={styles.label}>Carritos activos</Text>
+            {carritosActivos.map((carrito) => (
+              <Pressable
+                key={carrito._id}
+                style={[
+                  styles.suggestionItem,
+                  carritoCreadoId === carrito._id && styles.suggestionItemSelected,
+                ]}
+                onPress={() => {
+                  setCarritoCreadoId(carrito._id);
+                  setVentaResult('Carrito seleccionado para cobrar.');
+                }}
+              >
+                <Text
+                  style={[
+                    styles.suggestionTitle,
+                    carritoCreadoId === carrito._id && styles.suggestionTitleSelected,
+                  ]}
+                >
+                  {carrito._id}
+                </Text>
+                <Text
+                  style={[
+                    styles.suggestionMeta,
+                    carritoCreadoId === carrito._id && styles.suggestionMetaSelected,
+                  ]}
+                >
+                  Estado: {carrito?.estado || 'activo'} | Items:{' '}
+                  {Array.isArray(carrito?.items) ? carrito.items.length : 0}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
 
         <Pressable
           style={[
@@ -1055,6 +1126,7 @@ export default function VentasScreen({ onBack }) {
         </Pressable>
       </View>
 
+      {!isCajero ? (
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Resumen provisional</Text>
 
@@ -1098,7 +1170,9 @@ export default function VentasScreen({ onBack }) {
           <Text style={styles.clearCartButtonText}>Vaciar carrito local</Text>
         </Pressable>
       </View>
+      ) : null}
 
+      {!isCajero ? (
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Items cargados</Text>
 
@@ -1151,6 +1225,7 @@ export default function VentasScreen({ onBack }) {
           ))
         )}
       </View>
+      ) : null}
 
       {lastSaleSummary ? (
         <View style={styles.successBanner}>
