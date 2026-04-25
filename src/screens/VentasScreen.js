@@ -84,6 +84,13 @@ function formatPrecioDeVenta(item) {
   return precio === null ? 'sin configurar' : formatCurrency(precio);
 }
 
+function extractCarritoItems(carrito) {
+  if (Array.isArray(carrito?.items)) return carrito.items;
+  if (Array.isArray(carrito?.productos)) return carrito.productos;
+  if (Array.isArray(carrito?.detalle)) return carrito.detalle;
+  return [];
+}
+
 export default function VentasScreen({ onBack }) {
   const [productoNombre, setProductoNombre] = useState('');
   const [unidadVenta, setUnidadVenta] = useState('kg');
@@ -112,6 +119,7 @@ export default function VentasScreen({ onBack }) {
   const [carritoCreadoId, setCarritoCreadoId] = useState('');
   const [carritosQueryResult, setCarritosQueryResult] = useState('Todavía no has consultado carritos.');
   const [carritosActivos, setCarritosActivos] = useState([]);
+  const [carritoSeleccionadoActivo, setCarritoSeleccionadoActivo] = useState(null);
   const [loadingCarritos, setLoadingCarritos] = useState(false);
   const [ventaResult, setVentaResult] = useState('Todavía no has intentado crear la venta real.');
   const [creatingVenta, setCreatingVenta] = useState(false);
@@ -704,6 +712,7 @@ export default function VentasScreen({ onBack }) {
         {
           estado: 'activo',
           sedeId: sedeId.trim(),
+          ...(isCajero ? { cobrables: true } : {}),
           ...(!isCajero && usuarioId.trim() ? { usuarioId: usuarioId.trim() } : {}),
         },
         bearerToken.trim()
@@ -711,7 +720,11 @@ export default function VentasScreen({ onBack }) {
 
       const activos = Array.isArray(response?.data) ? response.data : [];
       setCarritosActivos(activos);
-      setCarritosQueryResult(`Carritos activos encontrados: ${activos.length}`);
+      if (isCajero && activos.length === 0) {
+        setCarritosQueryResult('No hay carritos cobrables para esta sede.');
+      } else {
+        setCarritosQueryResult(`Carritos activos encontrados: ${activos.length}`);
+      }
     } catch (error) {
       setCarritosActivos([]);
       setCarritosQueryResult(`Error: ${error.message}`);
@@ -751,19 +764,28 @@ export default function VentasScreen({ onBack }) {
         metodoPago,
         notas: notas.trim(),
       };
+      const carritoIdVendido = carritoCreadoId.trim();
 
       const response = await createVenta(payload, bearerToken.trim());
       const createdId = response?.data?._id || '';
       const ventaCreada = response?.data || {};
-      const carritoSeleccionado = carritosActivos.find(
-        (carrito) => carrito?._id === carritoCreadoId.trim()
+      const carritoSeleccionadoPorId = carritosActivos.find(
+        (carrito) => carrito?._id === carritoIdVendido
       );
-      const carritoVenta =
+      const carritoDesdeResponse =
         ventaCreada?.carritoId && typeof ventaCreada.carritoId === 'object'
           ? ventaCreada.carritoId
-          : carritoSeleccionado || null;
-      const ventaItems = Array.isArray(carritoVenta?.items) ? carritoVenta.items : items;
-      const ventaTotal = Number(ventaCreada?.total ?? carritoVenta?.total ?? totalVenta);
+          : null;
+      const carritoVenta =
+        carritoSeleccionadoActivo ||
+        carritoSeleccionadoPorId ||
+        carritoDesdeResponse ||
+        null;
+      const itemsDeCarrito = extractCarritoItems(carritoVenta);
+      const ventaItems = itemsDeCarrito.length > 0 ? itemsDeCarrito : items;
+      const ventaTotal = Number(
+        ventaCreada?.total ?? carritoVenta?.total ?? carritoSeleccionadoActivo?.total ?? totalVenta
+      );
       const productosResumen = ventaItems.map((item) => {
         const nombre = item?.productoNombre || item?.nombre || 'Producto';
         const cantidadItem = Number(item?.cantidad);
@@ -783,6 +805,10 @@ export default function VentasScreen({ onBack }) {
         itemsCount: ventaItems.length,
         productos: productosResumen,
       });
+      setCarritosActivos((current) =>
+        current.filter((carrito) => carrito?._id !== carritoIdVendido)
+      );
+      setCarritoSeleccionadoActivo(null);
       setItems([]);
       setCarritoCreadoId('');
       resetForm();
@@ -1062,37 +1088,92 @@ export default function VentasScreen({ onBack }) {
           <View style={styles.suggestionsBox}>
             <Text style={styles.label}>Carritos activos</Text>
             {carritosActivos.map((carrito) => (
-              <Pressable
-                key={carrito._id}
-                style={[
-                  styles.suggestionItem,
-                  carritoCreadoId === carrito._id && styles.suggestionItemSelected,
-                ]}
-                onPress={() => {
-                  setCarritoCreadoId(carrito._id);
-                  setVentaResult('Carrito seleccionado para cobrar.');
-                }}
-              >
-                <Text
-                  style={[
-                    styles.suggestionTitle,
-                    carritoCreadoId === carrito._id && styles.suggestionTitleSelected,
-                  ]}
-                >
-                  {carrito._id}
-                </Text>
-                <Text
-                  style={[
-                    styles.suggestionMeta,
-                    carritoCreadoId === carrito._id && styles.suggestionMetaSelected,
-                  ]}
-                >
-                  Estado: {carrito?.estado || 'activo'} | Items:{' '}
-                  {Array.isArray(carrito?.items) ? carrito.items.length : 0}
-                </Text>
-              </Pressable>
+              (() => {
+                const carritoItems = extractCarritoItems(carrito);
+                const productosResumen = carritoItems.length > 0
+                  ? carritoItems
+                      .map((item) => {
+                        const nombre = item?.productoNombre || item?.nombre || 'Producto';
+                        const cantidadItem = Number(item?.cantidad);
+                        const unidadItem = item?.unidadVenta || item?.unidad || 'und';
+                        const subtotalItem = Number(item?.subtotal);
+                        const cantidadTexto = Number.isFinite(cantidadItem) ? cantidadItem : 0;
+                        const subtotalTexto = Number.isFinite(subtotalItem)
+                          ? ` = ${formatCurrency(subtotalItem)}`
+                          : '';
+                        return `${nombre} (${cantidadTexto} ${unidadItem})${subtotalTexto}`;
+                      })
+                      .join(' | ')
+                  : 'Sin detalle de productos';
+                const requiereRevisionQa = carritoItems.some((item) => {
+                  const nombre = String(item?.productoNombre || item?.nombre || '').toLowerCase();
+                  return (
+                    nombre.includes('qa') ||
+                    nombre.includes('test') ||
+                    nombre.includes('prueba') ||
+                    nombre.includes('carrito')
+                  );
+                });
+
+                return (
+                  <Pressable
+                    key={carrito._id}
+                    style={[
+                      styles.suggestionItem,
+                      carritoCreadoId === carrito._id && styles.suggestionItemSelected,
+                    ]}
+                    onPress={() => {
+                      setCarritoCreadoId(carrito._id);
+                      setCarritoSeleccionadoActivo(carrito);
+                      setVentaResult(`Carrito seleccionado para cobrar: ${carrito._id}`);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.suggestionTitle,
+                        carritoCreadoId === carrito._id && styles.suggestionTitleSelected,
+                      ]}
+                    >
+                      ID: {carrito._id}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.suggestionMeta,
+                        carritoCreadoId === carrito._id && styles.suggestionMetaSelected,
+                      ]}
+                    >
+                      Total: {formatCurrency(carrito?.total)} | Estado: {carrito?.estado || 'activo'} |
+                      {' '}Items: {carritoItems.length}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.suggestionMeta,
+                        carritoCreadoId === carrito._id && styles.suggestionMetaSelected,
+                      ]}
+                    >
+                      Productos: {productosResumen}
+                    </Text>
+                    {requiereRevisionQa ? (
+                      <Text
+                        style={[
+                          styles.suggestionMeta,
+                          carritoCreadoId === carrito._id && styles.suggestionMetaSelected,
+                        ]}
+                      >
+                        Revisar: carrito de prueba o QA
+                      </Text>
+                    ) : null}
+                  </Pressable>
+                );
+              })()
             ))}
           </View>
+        ) : null}
+
+        {carritoCreadoId ? (
+          <Text style={styles.successText}>
+            Carrito seleccionado para cobrar: {carritoCreadoId}
+          </Text>
         ) : null}
 
         <Pressable

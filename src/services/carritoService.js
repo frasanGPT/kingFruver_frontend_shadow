@@ -34,6 +34,10 @@ export async function getCarritos(filters = {}, token) {
     params.append('usuarioId', filters.usuarioId);
   }
 
+  if (filters.cobrables === true) {
+    params.append('cobrables', 'true');
+  }
+
   const query = params.toString();
   const path = query ? `/api/carritos?${query}` : '/api/carritos';
 
