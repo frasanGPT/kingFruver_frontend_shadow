@@ -65,6 +65,7 @@ export function buildModuleAccess(usuario) {
     (hasPermission(usuario, "ventas:create") || hasPermission(usuario, "ventas:read"));
   const cajas = hasPermission(usuario, "cajas:read");
   const reportes =
+    roleCode !== "cajero" &&
     hasPermission(usuario, "ventas:read") &&
     hasPermission(usuario, "arqueos:read") &&
     hasPermission(usuario, "cajas:read");
