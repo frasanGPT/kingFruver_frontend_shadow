@@ -4,6 +4,7 @@ import AppShell from '../components/AppShell';
 import StatusBadge from '../components/StatusBadge';
 import { closeCajaWithArqueo, getCajas, openCaja } from '../services/cajaService';
 import { loadSession, saveSession } from '../services/sessionService';
+import { getRoleCode } from '../utils/accessControl';
 
 function formatCurrency(value) {
   return `$${Number(value || 0).toLocaleString('es-CO')}`;
@@ -86,6 +87,7 @@ function getCajaStatusVariant(estado) {
 export default function CajasScreen({ onBack }) {
   const [token, setToken] = useState('');
   const [sedeId, setSedeId] = useState('');
+  const [authUser, setAuthUser] = useState(null);
   const [selectedCajaId, setSelectedCajaId] = useState('');
   const [cajas, setCajas] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -129,6 +131,8 @@ export default function CajasScreen({ onBack }) {
 
     return 'Cuadre perfecto: $0';
   }, [diferenciaArqueoEstimada]);
+  const roleCode = getRoleCode(authUser);
+  const isCajero = roleCode === 'cajero';
 
   async function loadCajasRealtime(session, preferredCajaId = '') {
     const response = await getCajas({
@@ -164,6 +168,7 @@ export default function CajasScreen({ onBack }) {
 
         setToken(session.token || '');
         setSedeId(session.sedeId || '');
+        setAuthUser(session.usuario || null);
 
         await loadCajasRealtime(session, session.cajaId || '');
       } catch (error) {
@@ -206,6 +211,7 @@ export default function CajasScreen({ onBack }) {
 
       setToken(session.token || '');
       setSedeId(session.sedeId || '');
+      setAuthUser(session.usuario || null);
 
       await loadCajasRealtime(session, selectedCajaId || session.cajaId || '');
     } catch (error) {
@@ -322,8 +328,12 @@ export default function CajasScreen({ onBack }) {
   return (
     <AppShell
       title="Cajas"
-      subtitle="Base operativa"
-      description="Lectura y acciones reales de cajas desde backend shadow."
+      subtitle={isCajero ? 'Operación de mi caja de turno' : 'Base operativa'}
+      description={
+        isCajero
+          ? 'Usa esta pantalla para operar tu caja asignada de turno en backend shadow.'
+          : 'Lectura y acciones reales de cajas desde backend shadow.'
+      }
       layout="top"
     >
       <View style={styles.card}>
@@ -338,7 +348,14 @@ export default function CajasScreen({ onBack }) {
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Seleccionar caja</Text>
+        <Text style={styles.cardTitle}>
+          {isCajero ? 'Seleccionar mi caja operativa' : 'Seleccionar caja'}
+        </Text>
+        {isCajero ? (
+          <Text style={styles.helperText}>
+            Usa únicamente la caja asignada a tu turno. Las diferencias serán revisadas por supervisor.
+          </Text>
+        ) : null}
 
         {cajas.length === 0 ? (
           <Text style={styles.cardText}>No hay cajas disponibles para esta sede.</Text>
@@ -377,7 +394,9 @@ export default function CajasScreen({ onBack }) {
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Caja seleccionada actual</Text>
+        <Text style={styles.cardTitle}>
+          {isCajero ? 'Mi caja operativa seleccionada' : 'Caja seleccionada actual'}
+        </Text>
 
         {selectedCaja ? (
           <>
@@ -412,7 +431,9 @@ export default function CajasScreen({ onBack }) {
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Acción operativa actual</Text>
+        <Text style={styles.cardTitle}>
+          {isCajero ? 'Operación de mi caja' : 'Acción operativa actual'}
+        </Text>
 
         {!selectedCaja ? (
           <Text style={styles.cardText}>
@@ -423,7 +444,9 @@ export default function CajasScreen({ onBack }) {
         {selectedCaja?.estado === 'cerrada' ? (
           <>
             <Text style={styles.helperText}>
-              Esta caja esta cerrada. Aqui solo mostramos el flujo real de apertura.
+              {isCajero
+                ? 'Esta caja está cerrada. Ábrela solo si corresponde a tu turno.'
+                : 'Esta caja esta cerrada. Aqui solo mostramos el flujo real de apertura.'}
             </Text>
 
             <Text style={styles.label}>Saldo de apertura</Text>
@@ -451,7 +474,9 @@ export default function CajasScreen({ onBack }) {
         {selectedCaja?.estado === 'abierta' ? (
           <>
             <Text style={styles.helperText}>
-              Esta caja esta abierta. Aqui solo mostramos el flujo real de cierre con arqueo.
+              {isCajero
+                ? 'Esta caja está abierta. Declara el efectivo contado para cerrar tu turno con arqueo.'
+                : 'Esta caja esta abierta. Aqui solo mostramos el flujo real de cierre con arqueo.'}
             </Text>
 
             <View style={styles.summaryBox}>
