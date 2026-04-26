@@ -660,11 +660,6 @@ export default function VentasScreen({ onBack }) {
       return;
     }
 
-    if (!cajaRealAbierta) {
-      setCarritoResult('No hay una caja real abierta para esta sede. Ve a Cajas, abre una caja y vuelve a Ventas.');
-      return;
-    }
-
     if (!sedeId.trim()) {
       setCarritoResult('Debes tener un sedeId valido antes de crear el carrito.');
       return;
@@ -1062,10 +1057,10 @@ export default function VentasScreen({ onBack }) {
             <Pressable
               style={[
                 styles.realButton,
-                (!cajaRealAbierta || creatingCarrito) && styles.actionDisabledButton,
+                creatingCarrito && styles.actionDisabledButton,
               ]}
               onPress={handleCrearCarritoReal}
-              disabled={!cajaRealAbierta || creatingCarrito}
+              disabled={creatingCarrito}
             >
               <Text style={styles.realButtonText}>Crear carrito real en shadow</Text>
             </Pressable>
