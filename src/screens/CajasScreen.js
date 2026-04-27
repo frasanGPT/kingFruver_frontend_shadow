@@ -32,7 +32,7 @@ function buildOpenActionText(caja, notasAccion) {
     `Estado final: ${caja?.estado || 'sin valor'}`,
     `Saldo apertura: ${formatCurrency(caja?.saldoApertura || 0)}`,
     `Fecha apertura: ${formatDateTime(caja?.fechaApertura)}`,
-    `Efectivo: ${formatCurrency(caja?.totalEfectivo || 0)}`,
+    `Efectivo operativo: ${formatCurrency(caja?.totalEfectivo || 0)}`,
     `Transferencia: ${formatCurrency(caja?.totalTransferencia || 0)}`,
     `Mixto: ${formatCurrency(caja?.totalMixto || 0)}`,
     `Otro: ${formatCurrency(caja?.totalOtro || 0)}`,
@@ -317,7 +317,7 @@ export default function CajasScreen({ onBack }) {
         `Código: ${selectedCaja.codigo}`,
         `Estado: ${selectedCaja.estado}`,
         `Apertura base: ${formatCurrency(selectedCaja.saldoApertura || 0)}`,
-        `Total efectivo actual: ${formatCurrency(selectedCaja.totalEfectivo || 0)}`,
+        `Efectivo operativo actual: ${formatCurrency(selectedCaja.totalEfectivo || 0)}`,
         `Total transferencia actual: ${formatCurrency(selectedCaja.totalTransferencia || 0)}`,
         `Total mixto actual: ${formatCurrency(selectedCaja.totalMixto || 0)}`,
         `Total otro actual: ${formatCurrency(selectedCaja.totalOtro || 0)}`,
@@ -413,7 +413,13 @@ export default function CajasScreen({ onBack }) {
               Apertura base: {formatCurrency(selectedCaja.saldoApertura || 0)}
             </Text>
             <Text style={styles.cardText}>
-              Efectivo: {formatCurrency(selectedCaja.totalEfectivo || 0)}
+              Efectivo operativo: {formatCurrency(selectedCaja.totalEfectivo || 0)}
+            </Text>
+            <Text style={styles.cardText}>
+              Efectivo esperado con apertura:{' '}
+              {formatCurrency(
+                Number(selectedCaja.saldoApertura || 0) + Number(selectedCaja.totalEfectivo || 0)
+              )}
             </Text>
             <Text style={styles.cardText}>
               Transferencia: {formatCurrency(selectedCaja.totalTransferencia || 0)}
