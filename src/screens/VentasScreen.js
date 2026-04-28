@@ -8,7 +8,7 @@ import {
   View,
 } from 'react-native';
 import AppShell from '../components/AppShell';
-import { createCarrito, getCarritos } from '../services/carritoService';
+import { cancelCarrito, createCarrito, getCarritos } from '../services/carritoService';
 import { createVenta } from '../services/ventaService';
 import { getInventarioDisponible } from '../services/inventarioService';
 import { loadSession, saveSession } from '../services/sessionService';
@@ -91,6 +91,10 @@ function extractCarritoItems(carrito) {
   return [];
 }
 
+function getUserDisplayName(user) {
+  return user?.email || user?.nombre || 'sin responsable';
+}
+
 export default function VentasScreen({ onBack }) {
   const [productoNombre, setProductoNombre] = useState('');
   const [unidadVenta, setUnidadVenta] = useState('kg');
@@ -121,6 +125,8 @@ export default function VentasScreen({ onBack }) {
   const [carritosActivos, setCarritosActivos] = useState([]);
   const [carritoSeleccionadoActivo, setCarritoSeleccionadoActivo] = useState(null);
   const [loadingCarritos, setLoadingCarritos] = useState(false);
+  const [cancellingCarrito, setCancellingCarrito] = useState(false);
+  const [motivoCancelacionCarrito, setMotivoCancelacionCarrito] = useState('');
   const [ventaResult, setVentaResult] = useState('Todavía no has intentado crear la venta real.');
   const [creatingVenta, setCreatingVenta] = useState(false);
   const [ventaCreadaId, setVentaCreadaId] = useState('');
@@ -814,6 +820,52 @@ export default function VentasScreen({ onBack }) {
     }
   }
 
+  async function handleCancelarCarritoActivo(carrito) {
+    if (isCajero) {
+      return;
+    }
+
+    if (!bearerToken.trim()) {
+      setCarritosQueryResult('Primero valida acceso en Home para cancelar carritos.');
+      return;
+    }
+
+    const carritoId = String(carrito?._id || '').trim();
+    if (!carritoId) {
+      setCarritosQueryResult('No se pudo cancelar: carritoId inválido.');
+      return;
+    }
+
+    try {
+      setCancellingCarrito(true);
+      setCarritosQueryResult('Cancelando carrito activo en shadow...');
+      const response = await cancelCarrito(
+        carritoId,
+        motivoCancelacionCarrito.trim() || 'Cancelación operativa',
+        bearerToken.trim()
+      );
+      const data = response?.data || {};
+      const canceladoPor = getUserDisplayName(data?.cancelledByUsuarioId);
+      const fechaCancelacion = data?.fechaCancelacion
+        ? new Date(data.fechaCancelacion).toLocaleString('es-CO')
+        : 'sin valor';
+      const motivo = data?.motivoCancelacion || 'Cancelación operativa';
+
+      setCarritosQueryResult(
+        `Carrito cancelado\ncarritoId: ${data?._id || carritoId}\nestado: ${data?.estado || 'cancelado'}\ncancelado por: ${canceladoPor}\nfecha cancelación: ${fechaCancelacion}\nmotivo: ${motivo}`
+      );
+      setCarritosActivos((current) => current.filter((row) => row?._id !== carritoId));
+      if (carritoCreadoId === carritoId) {
+        setCarritoCreadoId('');
+        setCarritoSeleccionadoActivo(null);
+      }
+    } catch (error) {
+      setCarritosQueryResult(`Error: ${error.message}`);
+    } finally {
+      setCancellingCarrito(false);
+    }
+  }
+
   return (
     <AppShell
       title="Ventas"
@@ -1082,6 +1134,17 @@ export default function VentasScreen({ onBack }) {
         {carritosActivos.length > 0 ? (
           <View style={styles.suggestionsBox}>
             <Text style={styles.label}>Carritos activos</Text>
+            {!isCajero ? (
+              <>
+                <Text style={styles.label}>Motivo de cancelación (opcional)</Text>
+                <TextInput
+                  value={motivoCancelacionCarrito}
+                  onChangeText={setMotivoCancelacionCarrito}
+                  placeholder="Ej: duplicado operativo"
+                  style={styles.input}
+                />
+              </>
+            ) : null}
             {carritosActivos.map((carrito) => (
               (() => {
                 const carritoItems = extractCarritoItems(carrito);
@@ -1157,6 +1220,18 @@ export default function VentasScreen({ onBack }) {
                       >
                         Revisar: carrito de prueba o QA
                       </Text>
+                    ) : null}
+                    {!isCajero ? (
+                      <Pressable
+                        style={[
+                          styles.cancelEditButton,
+                          cancellingCarrito && styles.actionDisabledButton,
+                        ]}
+                        onPress={() => handleCancelarCarritoActivo(carrito)}
+                        disabled={cancellingCarrito}
+                      >
+                        <Text style={styles.cancelEditButtonText}>Cancelar carrito activo</Text>
+                      </Pressable>
                     ) : null}
                   </Pressable>
                 );

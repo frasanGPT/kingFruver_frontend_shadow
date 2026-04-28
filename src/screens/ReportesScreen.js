@@ -103,11 +103,13 @@ export default function ReportesScreen({ onBack }) {
   const [rawCarritosActivos, setRawCarritosActivos] = useState([]);
   const [rawCarritosCobrables, setRawCarritosCobrables] = useState([]);
   const [rawCarritosCobrados, setRawCarritosCobrados] = useState([]);
+  const [rawCarritosCancelados, setRawCarritosCancelados] = useState([]);
   const [ventas, setVentas] = useState([]);
   const [arqueos, setArqueos] = useState([]);
   const [carritosActivos, setCarritosActivos] = useState([]);
   const [carritosCobrables, setCarritosCobrables] = useState([]);
   const [carritosCobrados, setCarritosCobrados] = useState([]);
+  const [carritosCancelados, setCarritosCancelados] = useState([]);
   const [cajas, setCajas] = useState([]);
   const [selectedCajaId, setSelectedCajaId] = useState('');
   const [selectedMetodoPago, setSelectedMetodoPago] = useState('todos');
@@ -240,7 +242,8 @@ export default function ReportesScreen({ onBack }) {
     arqueosRows,
     carritosActivosRows,
     carritosCobrablesRows,
-    carritosCobradosRows
+    carritosCobradosRows,
+    carritosCanceladosRows
   ) {
     const now = new Date();
 
@@ -287,12 +290,17 @@ export default function ReportesScreen({ onBack }) {
       carritosCobradosRows,
       (carrito) => carrito?.createdAt
     );
+    const carritosCanceladosFiltrados = filterRows(
+      carritosCanceladosRows,
+      (carrito) => carrito?.fechaCancelacion || carrito?.createdAt
+    );
 
     setVentas(ventasFiltradas);
     setArqueos(arqueosFiltrados);
     setCarritosActivos(carritosActivosFiltrados);
     setCarritosCobrables(carritosCobrablesFiltrados);
     setCarritosCobrados(carritosCobradosFiltrados);
+    setCarritosCancelados(carritosCanceladosFiltrados);
   }
 
   async function loadReportes(nextFilters = {}) {
@@ -309,9 +317,11 @@ export default function ReportesScreen({ onBack }) {
         setRawCarritosActivos([]);
         setRawCarritosCobrables([]);
         setRawCarritosCobrados([]);
+        setRawCarritosCancelados([]);
         setCarritosActivos([]);
         setCarritosCobrables([]);
         setCarritosCobrados([]);
+        setCarritosCancelados([]);
         setCajas([]);
         return;
       }
@@ -334,7 +344,15 @@ export default function ReportesScreen({ onBack }) {
       setToken(effectiveToken);
       setSedeId(effectiveSedeId);
 
-      const [ventasResponse, arqueosResponse, cajasResponse, carritosActivosResponse, carritosCobrablesResponse, carritosCobradosResponse] = await Promise.all([
+      const [
+        ventasResponse,
+        arqueosResponse,
+        cajasResponse,
+        carritosActivosResponse,
+        carritosCobrablesResponse,
+        carritosCobradosResponse,
+        carritosCanceladosResponse,
+      ] = await Promise.all([
         getVentas(
           {
             sedeId: effectiveSedeId,
@@ -379,6 +397,13 @@ export default function ReportesScreen({ onBack }) {
           },
           effectiveToken
         ),
+        getCarritos(
+          {
+            sedeId: effectiveSedeId,
+            estado: 'cancelado',
+          },
+          effectiveToken
+        ),
       ]);
 
       const ventasRows = ventasResponse?.data || [];
@@ -387,19 +412,22 @@ export default function ReportesScreen({ onBack }) {
       const carritosActivosRows = carritosActivosResponse?.data || [];
       const carritosCobrablesRows = carritosCobrablesResponse?.data || [];
       const carritosCobradosRows = carritosCobradosResponse?.data || [];
+      const carritosCanceladosRows = carritosCanceladosResponse?.data || [];
 
       setRawVentas(ventasRows);
       setRawArqueos(arqueosRows);
       setRawCarritosActivos(carritosActivosRows);
       setRawCarritosCobrables(carritosCobrablesRows);
       setRawCarritosCobrados(carritosCobradosRows);
+      setRawCarritosCancelados(carritosCanceladosRows);
       applyVisibleTimeFilter(
         effectiveTimeRange,
         ventasRows,
         arqueosRows,
         carritosActivosRows,
         carritosCobrablesRows,
-        carritosCobradosRows
+        carritosCobradosRows,
+        carritosCanceladosRows
       );
       setCajas(cajasRows);
 
@@ -412,9 +440,11 @@ export default function ReportesScreen({ onBack }) {
       setRawCarritosActivos([]);
       setRawCarritosCobrables([]);
       setRawCarritosCobrados([]);
+      setRawCarritosCancelados([]);
       setCarritosActivos([]);
       setCarritosCobrables([]);
       setCarritosCobrados([]);
+      setCarritosCancelados([]);
       setCajas([]);
       setScreenResult(`Error: ${error.message}`);
     } finally {
@@ -625,6 +655,7 @@ export default function ReportesScreen({ onBack }) {
           Carritos no cobrables: {Math.max(carritosActivos.length - carritosCobrables.length, 0)}
         </Text>
         <Text style={styles.activityText}>Carritos cobrados: {carritosCobrados.length}</Text>
+        <Text style={styles.activityText}>Carritos cancelados: {carritosCancelados.length}</Text>
       </View>
 
       <View style={styles.card}>

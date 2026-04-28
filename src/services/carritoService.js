@@ -1,4 +1,4 @@
-import { apiGet, apiPost } from './apiClient';
+import { apiGet, apiPatch, apiPost } from './apiClient';
 
 export async function createCarrito(payload, token) {
   const headers = {};
@@ -45,4 +45,21 @@ export async function getCarritos(filters = {}, token) {
     timeoutMs: 20000,
     headers,
   });
+}
+
+export async function cancelCarrito(id, motivo, token) {
+  const headers = {};
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  return apiPatch(
+    `/api/carritos/${id}/cancel`,
+    { motivo },
+    {
+      timeoutMs: 20000,
+      headers,
+    }
+  );
 }
