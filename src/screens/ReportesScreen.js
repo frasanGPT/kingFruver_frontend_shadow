@@ -27,6 +27,10 @@ function formatDateTime(value) {
   return date.toLocaleString('es-CO');
 }
 
+function getUserDisplayName(user) {
+  return user?.email || user?.nombre || 'sin responsable';
+}
+
 function cleanCajaDisplayName(value) {
   const raw = String(value || '').trim();
 
@@ -745,6 +749,9 @@ export default function ReportesScreen({ onBack }) {
             </Text>
             <Text style={styles.metricBlock}>
               arqueoId: {ultimoArqueo._id || 'sin valor'}
+            </Text>
+            <Text style={styles.metricBlock}>
+              Responsable: {getUserDisplayName(ultimoArqueo.usuarioId)}
             </Text>
 
             <StatusBadge

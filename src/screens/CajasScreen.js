@@ -24,6 +24,10 @@ function formatDateTime(value) {
   return date.toLocaleString('es-CO');
 }
 
+function getUserDisplayName(user) {
+  return user?.email || user?.nombre || 'sin responsable';
+}
+
 function buildOpenActionText(caja, notasAccion) {
   return [
     'Caja abierta con exito',
@@ -32,6 +36,7 @@ function buildOpenActionText(caja, notasAccion) {
     `Estado final: ${caja?.estado || 'sin valor'}`,
     `Saldo apertura: ${formatCurrency(caja?.saldoApertura || 0)}`,
     `Fecha apertura: ${formatDateTime(caja?.fechaApertura)}`,
+    `Abierta por: ${getUserDisplayName(caja?.openedByUsuarioId)}`,
     `Efectivo operativo: ${formatCurrency(caja?.totalEfectivo || 0)}`,
     `Transferencia: ${formatCurrency(caja?.totalTransferencia || 0)}`,
     `Mixto: ${formatCurrency(caja?.totalMixto || 0)}`,
@@ -47,6 +52,8 @@ function buildCloseActionText(caja, arqueo, notasAccion) {
     `Código: ${caja?.codigo || 'sin valor'}`,
     `Estado final: ${caja?.estado || 'sin valor'}`,
     `Fecha cierre: ${formatDateTime(caja?.fechaCierre)}`,
+    `Cerrada por: ${getUserDisplayName(caja?.closedByUsuarioId)}`,
+    `Responsable del arqueo: ${getUserDisplayName(arqueo?.usuarioId)}`,
     `Saldo apertura: ${formatCurrency(arqueo?.saldoApertura || 0)}`,
     `Esperado efectivo: ${formatCurrency(arqueo?.esperadoEfectivo || 0)}`,
     `Contado efectivo: ${formatCurrency(arqueo?.contadoEfectivo || 0)}`,
@@ -420,6 +427,12 @@ export default function CajasScreen({ onBack }) {
               {formatCurrency(
                 Number(selectedCaja.saldoApertura || 0) + Number(selectedCaja.totalEfectivo || 0)
               )}
+            </Text>
+            <Text style={styles.cardText}>
+              Abierta por: {getUserDisplayName(selectedCaja.openedByUsuarioId)}
+            </Text>
+            <Text style={styles.cardText}>
+              Cerrada por: {getUserDisplayName(selectedCaja.closedByUsuarioId)}
             </Text>
             <Text style={styles.cardText}>
               Transferencia: {formatCurrency(selectedCaja.totalTransferencia || 0)}
