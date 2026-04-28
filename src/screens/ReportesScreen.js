@@ -133,9 +133,7 @@ export default function ReportesScreen({ onBack }) {
       return (
         sedeDesdeVentas.nombre ||
         sedeDesdeVentas.codigo ||
-        sedeDesdeVentas._id ||
-        sedeId ||
-        'sin sede'
+        'Sede configurada'
       );
     }
 
@@ -144,24 +142,20 @@ export default function ReportesScreen({ onBack }) {
       return (
         sedeDesdeArqueos.nombre ||
         sedeDesdeArqueos.codigo ||
-        sedeDesdeArqueos._id ||
-        sedeId ||
-        'sin sede'
+        'Sede configurada'
       );
     }
 
-    const sedeDesdeCajas = cajas.find((caja) => caja?.sedeId)?.sedeId;
-    if (sedeDesdeCajas) {
-      return (
-        sedeDesdeCajas.nombre ||
-        sedeDesdeCajas.codigo ||
-        sedeDesdeCajas._id ||
-        sedeId ||
-        'sin sede'
-      );
-    }
+      const sedeDesdeCajas = cajas.find((caja) => caja?.sedeId)?.sedeId;
+      if (sedeDesdeCajas) {
+        return (
+          sedeDesdeCajas.nombre ||
+          sedeDesdeCajas.codigo ||
+          'Sede configurada'
+        );
+      }
 
-    return sedeId || 'sin sede';
+      return sedeId ? 'Sede configurada' : 'sin sede';
   }, [ventas, arqueos, cajas, sedeId]);
 
   const ultimaActividad = useMemo(() => {
@@ -299,13 +293,11 @@ export default function ReportesScreen({ onBack }) {
           },
           effectiveToken
         ),
-        getCajas(
-          {
-            sedeId: effectiveSedeId,
-            activo: true,
-          },
-          effectiveToken
-        ),
+        getCajas({
+          sedeId: effectiveSedeId,
+          activo: true,
+          token: effectiveToken,
+        }),
       ]);
 
       const ventasRows = ventasResponse?.data || [];
@@ -480,10 +472,10 @@ export default function ReportesScreen({ onBack }) {
             Caja: {selectedCajaName}
           </Text>
           <Text style={styles.activeFiltersText}>
-            Método: {selectedMetodoPago}
+            Método de pago: {selectedMetodoPago}
           </Text>
           <Text style={styles.activeFiltersText}>
-            Token: {token ? 'si' : 'no'}
+            Sesión activa: {token ? 'sí' : 'no'}
           </Text>
         </View>
 
@@ -551,6 +543,21 @@ export default function ReportesScreen({ onBack }) {
             <Text style={styles.metricBlock}>
               Total: {formatCurrency(ultimaVenta.total || 0)}
             </Text>
+            <Text style={styles.metricBlock}>
+              ventaId: {ultimaVenta._id || 'sin valor'}
+            </Text>
+
+            {Array.isArray(ultimaVenta.items) && ultimaVenta.items.length > 0 ? (
+              <View style={styles.detailListBox}>
+                <Text style={styles.detailListTitle}>Detalle de la venta</Text>
+
+                {ultimaVenta.items.map((item, index) => (
+                  <Text key={`ultima-venta-item-${index}`} style={styles.metricBlock}>
+                    {item.productoNombre}: {item.cantidad} {item.unidadVenta} x {formatCurrency(item.precioUnitario)} = {formatCurrency(item.subtotal)}
+                  </Text>
+                ))}
+              </View>
+            ) : null}
           </>
         )}
       </View>
@@ -593,10 +600,7 @@ export default function ReportesScreen({ onBack }) {
               Fecha: {formatDateTime(ultimoArqueo.fechaArqueo || ultimoArqueo.createdAt)}
             </Text>
             <Text style={styles.metricBlock}>
-              Esperado efectivo: {formatCurrency(ultimoArqueo.esperadoEfectivo || 0)}
-            </Text>
-            <Text style={styles.metricBlock}>
-              Contado efectivo: {formatCurrency(ultimoArqueo.contadoEfectivo || 0)}
+              arqueoId: {ultimoArqueo._id || 'sin valor'}
             </Text>
 
             <StatusBadge
@@ -604,15 +608,28 @@ export default function ReportesScreen({ onBack }) {
               variant={arqueoSemantic.variant}
             />
 
-            <Text style={styles.metricBlock}>
-              Transferencia: {formatCurrency(ultimoArqueo.totalTransferencia || 0)}
-            </Text>
-            <Text style={styles.metricBlock}>
-              Mixto: {formatCurrency(ultimoArqueo.totalMixto || 0)}
-            </Text>
-            <Text style={styles.metricBlock}>
-              Otro: {formatCurrency(ultimoArqueo.totalOtro || 0)}
-            </Text>
+            <View style={styles.detailListBox}>
+              <Text style={styles.detailListTitle}>Detalle del arqueo</Text>
+
+              <Text style={styles.metricBlock}>
+                Esperado efectivo: {formatCurrency(ultimoArqueo.esperadoEfectivo || 0)}
+              </Text>
+              <Text style={styles.metricBlock}>
+                Contado efectivo: {formatCurrency(ultimoArqueo.contadoEfectivo || 0)}
+              </Text>
+              <Text style={styles.metricBlock}>
+                Diferencia: {formatCurrency((ultimoArqueo.contadoEfectivo || 0) - (ultimoArqueo.esperadoEfectivo || 0))}
+              </Text>
+              <Text style={styles.metricBlock}>
+                Transferencia: {formatCurrency(ultimoArqueo.totalTransferencia || 0)}
+              </Text>
+              <Text style={styles.metricBlock}>
+                Mixto: {formatCurrency(ultimoArqueo.totalMixto || 0)}
+              </Text>
+              <Text style={styles.metricBlock}>
+                Otro: {formatCurrency(ultimoArqueo.totalOtro || 0)}
+              </Text>
+            </View>
           </>
         )}
       </View>
@@ -779,6 +796,21 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     color: '#111827',
     marginBottom: 6,
+  },
+  detailListBox: {
+    width: '100%',
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 10,
+    padding: 12,
+    marginTop: 10,
+  },
+  detailListTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 8,
   },
   semanticBoxBase: {
     width: '100%',

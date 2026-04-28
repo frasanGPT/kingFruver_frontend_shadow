@@ -153,7 +153,7 @@ export default function LoginAccessCard({ onSessionChange }) {
       {loading || loadingSession ? <ActivityIndicator size="large" style={styles.loader} /> : null}
 
       <Pressable style={styles.logoutButton} onPress={handleLogout}>
-        <Text style={styles.logoutButtonText}>Cerrar sesion</Text>
+        <Text style={styles.logoutButtonText}>Cerrar sesión</Text>
       </Pressable>
 
       <Text style={styles.resultText}>{resultText}</Text>

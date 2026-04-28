@@ -13,6 +13,7 @@ import { createVenta } from '../services/ventaService';
 import { getInventarioDisponible } from '../services/inventarioService';
 import { loadSession, saveSession } from '../services/sessionService';
 import { getCajas } from '../services/cajaService';
+import { getRoleCode } from '../utils/accessControl';
 
 const SHADOW_DEFAULT_SEDE_ID = '69aa0d3cd908c9f5f152fc2c';
 const SHADOW_DEFAULT_CAJA_ID = '69aecd84319a254c552951a8';
@@ -64,6 +65,32 @@ function extractSedeIdFromUser(usuario) {
   return '';
 }
 
+function getPrecioDeVenta(item) {
+  const value = Number(item?.precioDeVenta);
+
+  if (!Number.isFinite(value) || value <= 0) {
+    return null;
+  }
+
+  return value;
+}
+
+function hasPrecioDeVenta(item) {
+  return getPrecioDeVenta(item) !== null;
+}
+
+function formatPrecioDeVenta(item) {
+  const precio = getPrecioDeVenta(item);
+  return precio === null ? 'sin configurar' : formatCurrency(precio);
+}
+
+function extractCarritoItems(carrito) {
+  if (Array.isArray(carrito?.items)) return carrito.items;
+  if (Array.isArray(carrito?.productos)) return carrito.productos;
+  if (Array.isArray(carrito?.detalle)) return carrito.detalle;
+  return [];
+}
+
 export default function VentasScreen({ onBack }) {
   const [productoNombre, setProductoNombre] = useState('');
   const [unidadVenta, setUnidadVenta] = useState('kg');
@@ -79,27 +106,33 @@ export default function VentasScreen({ onBack }) {
   const [usuarioId, setUsuarioId] = useState('');
   const [cajaId, setCajaId] = useState(SHADOW_DEFAULT_CAJA_ID);
   const [cajaOperativaLabel, setCajaOperativaLabel] = useState('sin caja');
+  const [cajaRealAbierta, setCajaRealAbierta] = useState(false);
+  const [cajaEstadoOperativo, setCajaEstadoOperativo] = useState('sin validar');
   const [bearerToken, setBearerToken] = useState('');
   const [authUser, setAuthUser] = useState(null);
-  const [authResult, setAuthResult] = useState('Todavia no has iniciado sesion.');
+  const [authResult, setAuthResult] = useState('Todavía no has iniciado sesión.');
   const [loggingIn, setLoggingIn] = useState(false);
   const [restoringSession, setRestoringSession] = useState(true);
   const [payloadPreview, setPayloadPreview] = useState('');
-  const [carritoResult, setCarritoResult] = useState('Todavia no has intentado crear el carrito real.');
+  const [carritoResult, setCarritoResult] = useState('Todavía no has intentado crear el carrito real.');
   const [creatingCarrito, setCreatingCarrito] = useState(false);
   const [carritoCreadoId, setCarritoCreadoId] = useState('');
-  const [carritosQueryResult, setCarritosQueryResult] = useState('Todavia no has consultado carritos.');
+  const [carritosQueryResult, setCarritosQueryResult] = useState('Todavía no has consultado carritos.');
+  const [carritosActivos, setCarritosActivos] = useState([]);
+  const [carritoSeleccionadoActivo, setCarritoSeleccionadoActivo] = useState(null);
   const [loadingCarritos, setLoadingCarritos] = useState(false);
-  const [ventaResult, setVentaResult] = useState('Todavia no has intentado crear la venta real.');
+  const [ventaResult, setVentaResult] = useState('Todavía no has intentado crear la venta real.');
   const [creatingVenta, setCreatingVenta] = useState(false);
   const [ventaCreadaId, setVentaCreadaId] = useState('');
   const [lastSaleSummary, setLastSaleSummary] = useState(null);
   const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
-  const [inventarioResult, setInventarioResult] = useState('Todavia no has consultado inventario disponible.');
+  const [inventarioResult, setInventarioResult] = useState('Todavía no has consultado inventario disponible.');
   const [loadingInventario, setLoadingInventario] = useState(false);
   const [inventarioItems, setInventarioItems] = useState([]);
   const [recentSelections, setRecentSelections] = useState([]);
   const cantidadInputRef = useRef(null);
+  const roleCode = getRoleCode(authUser);
+  const isCajero = roleCode === 'cajero';
 
   useEffect(() => {
     async function restoreSession() {
@@ -122,7 +155,7 @@ export default function VentasScreen({ onBack }) {
         setMetodoPago(session.metodoPago || 'efectivo');
         setRecentSelections(session.recentSelections || []);
         setAuthResult(
-          `Sesion restaurada: ${restoredUser?.email || 'usuario'}`
+          `Sesión restaurada: ${restoredUser?.email || 'usuario'}`
         );
       } catch (error) {
         setAuthResult('No se pudo restaurar la sesión guardada.');
@@ -287,6 +320,7 @@ export default function VentasScreen({ onBack }) {
       unidadBase: item.unidadBase,
       stockDisponible: item.stockDisponible,
       costoPromedio: item.costoPromedio,
+      precioDeVenta: item.precioDeVenta,
       activo: item.activo,
     };
   }
@@ -309,10 +343,29 @@ export default function VentasScreen({ onBack }) {
       return current
         .map((recentItem) => {
           const updatedItem = nextInventarioItems.find((inventarioItem) => {
-            useEffect(() => {
+            return (
+              inventarioItem.productoNombre === recentItem.productoNombre &&
+              inventarioItem.unidadBase === recentItem.unidadBase
+            );
+          });
+
+          if (!updatedItem) {
+            return null;
+          }
+
+          return buildRecentEntry(updatedItem);
+        })
+        .filter(Boolean);
+    });
+  }
+
+  useEffect(() => {
     async function hydrateCajaOperativaLabel() {
       if (!String(cajaId || '').trim()) {
-        if ((authUser?.email || '') === 'admin.shadow@kingfruver.local') {
+        setCajaRealAbierta(false);
+        setCajaEstadoOperativo('sin caja');
+
+        if ((authUser?.email || '') === SHADOW_ADMIN_EMAIL) {
           setCajaOperativaLabel('Caja Shadow (CJSH01)');
           return;
         }
@@ -322,6 +375,8 @@ export default function VentasScreen({ onBack }) {
       }
 
       if (!String(bearerToken || '').trim() || !String(sedeId || '').trim()) {
+        setCajaRealAbierta(false);
+        setCajaEstadoOperativo('sin validar');
         setCajaOperativaLabel('configurada');
         return;
       }
@@ -338,13 +393,22 @@ export default function VentasScreen({ onBack }) {
 
         if (match) {
           const nombre = match.nombre || 'Caja';
-          const codigo = match.codigo ? ' (' + match.codigo + ')' : '';
+          const codigo = match.codigo ? ` (${match.codigo})` : '';
+          const estadoNormalizado = String(match.estado || '').trim().toLowerCase();
+          const abierta = estadoNormalizado === 'abierta';
+
           setCajaOperativaLabel(nombre + codigo);
+          setCajaRealAbierta(abierta);
+          setCajaEstadoOperativo(abierta ? 'abierta' : (match.estado || 'cerrada'));
           return;
         }
 
+        setCajaRealAbierta(false);
+        setCajaEstadoOperativo('no encontrada');
         setCajaOperativaLabel('configurada');
       } catch (error) {
+        setCajaRealAbierta(false);
+        setCajaEstadoOperativo('sin validar');
         setCajaOperativaLabel('configurada');
       }
     }
@@ -352,29 +416,22 @@ export default function VentasScreen({ onBack }) {
     hydrateCajaOperativaLabel();
   }, [bearerToken, sedeId, cajaId, authUser]);
 
-  return (
-              inventarioItem.productoNombre === recentItem.productoNombre &&
-              inventarioItem.unidadBase === recentItem.unidadBase
-            );
-          });
-
-          if (!updatedItem) {
-            return null;
-          }
-
-          return buildRecentEntry(updatedItem);
-        })
-        .filter(Boolean)
-        .slice(0, 6);
-    });
-  }
-
   function handleSelectInventarioItem(item) {
+    const precioDeVenta = getPrecioDeVenta(item);
+
     setSelectedInventario(item);
     setProductoNombre(item.productoNombre);
     setUnidadVenta(item.unidadBase);
-    setPrecioUnitario(String(item.costoPromedio ?? ''));
+    setPrecioUnitario(precioDeVenta === null ? '' : String(precioDeVenta));
     addRecentSelection(item);
+
+    if (precioDeVenta === null) {
+      setFormError(
+        'Este producto no tiene precio de venta configurado. Pideselo al administrador en Productos.'
+      );
+      return;
+    }
+
     setFormError('');
 
     setTimeout(() => {
@@ -404,6 +461,15 @@ export default function VentasScreen({ onBack }) {
       return;
     }
 
+    if (!hasPrecioDeVenta(selectedInventario)) {
+      setFormError(
+        'Este producto no tiene precio de venta configurado. Pideselo al administrador en Productos.'
+      );
+      return;
+    }
+
+    const precioConfigurado = getPrecioDeVenta(selectedInventario);
+
     if (!Number.isFinite(cantidadNumero) || cantidadNumero <= 0) {
       setFormError('La cantidad debe ser un numero mayor que cero.');
       return;
@@ -416,6 +482,11 @@ export default function VentasScreen({ onBack }) {
 
     if (!Number.isFinite(precioNumero) || precioNumero <= 0) {
       setFormError('El precio desde inventario no es valido.');
+      return;
+    }
+
+    if (precioNumero !== precioConfigurado) {
+      setFormError('El precio debe salir del precio de venta configurado.');
       return;
     }
 
@@ -446,6 +517,7 @@ export default function VentasScreen({ onBack }) {
       unidadBase: selectedInventario.unidadBase,
       stockDisponible: selectedInventario.stockDisponible,
       costoPromedio: selectedInventario.costoPromedio,
+      precioDeVenta: selectedInventario.precioDeVenta,
       activo: selectedInventario.activo,
     };
 
@@ -528,8 +600,8 @@ export default function VentasScreen({ onBack }) {
     setCarritoCreadoId('');
     setVentaCreadaId('');
     setPayloadPreview('');
-    setCarritoResult('Todavia no has intentado crear el carrito real.');
-    setVentaResult('Todavia no has intentado crear la venta real.');
+    setCarritoResult('Todavía no has intentado crear el carrito real.');
+    setVentaResult('Todavía no has intentado crear la venta real.');
     setLastSaleSummary(null);
     resetForm();
   }
@@ -601,7 +673,6 @@ export default function VentasScreen({ onBack }) {
     try {
       setCreatingCarrito(true);
       setCarritoResult('Creando carrito real en shadow...');
-
       const payload = buildContratoCarritoReal();
       const response = await createCarrito(payload, bearerToken.trim());
       const createdId = response?.data?._id || '';
@@ -636,13 +707,21 @@ export default function VentasScreen({ onBack }) {
         {
           estado: 'activo',
           sedeId: sedeId.trim(),
-          ...(usuarioId.trim() ? { usuarioId: usuarioId.trim() } : {}),
+          ...(isCajero ? { cobrables: true } : {}),
+          ...(!isCajero && usuarioId.trim() ? { usuarioId: usuarioId.trim() } : {}),
         },
         bearerToken.trim()
       );
 
-      setCarritosQueryResult(JSON.stringify(response, null, 2));
+      const activos = Array.isArray(response?.data) ? response.data : [];
+      setCarritosActivos(activos);
+      if (isCajero && activos.length === 0) {
+        setCarritosQueryResult('No hay carritos cobrables para esta sede.');
+      } else {
+        setCarritosQueryResult(`Carritos activos encontrados: ${activos.length}`);
+      }
     } catch (error) {
+      setCarritosActivos([]);
       setCarritosQueryResult(`Error: ${error.message}`);
     } finally {
       setLoadingCarritos(false);
@@ -655,8 +734,13 @@ export default function VentasScreen({ onBack }) {
       return;
     }
 
+    if (!cajaRealAbierta) {
+      setVentaResult('No hay una caja real abierta para esta sede. Ve a Cajas, abre una caja y vuelve a Ventas.');
+      return;
+    }
+
     if (!carritoCreadoId.trim()) {
-      setVentaResult('Primero debes crear el carrito real.');
+      setVentaResult('Primero debes seleccionar un carrito activo.');
       return;
     }
 
@@ -675,9 +759,35 @@ export default function VentasScreen({ onBack }) {
         metodoPago,
         notas: notas.trim(),
       };
+      const carritoIdVendido = carritoCreadoId.trim();
 
       const response = await createVenta(payload, bearerToken.trim());
       const createdId = response?.data?._id || '';
+      const ventaCreada = response?.data || {};
+      const carritoSeleccionadoPorId = carritosActivos.find(
+        (carrito) => carrito?._id === carritoIdVendido
+      );
+      const carritoDesdeResponse =
+        ventaCreada?.carritoId && typeof ventaCreada.carritoId === 'object'
+          ? ventaCreada.carritoId
+          : null;
+      const carritoVenta =
+        carritoSeleccionadoActivo ||
+        carritoSeleccionadoPorId ||
+        carritoDesdeResponse ||
+        null;
+      const itemsDeCarrito = extractCarritoItems(carritoVenta);
+      const ventaItems = itemsDeCarrito.length > 0 ? itemsDeCarrito : items;
+      const ventaTotal = Number(
+        ventaCreada?.total ?? carritoVenta?.total ?? carritoSeleccionadoActivo?.total ?? totalVenta
+      );
+      const productosResumen = ventaItems.map((item) => {
+        const nombre = item?.productoNombre || item?.nombre || 'Producto';
+        const cantidadItem = Number(item?.cantidad);
+        const unidadItem = item?.unidadVenta || item?.unidad || 'und';
+        const cantidadTexto = Number.isFinite(cantidadItem) ? cantidadItem : 0;
+        return `${nombre} (${cantidadTexto} ${unidadItem})`;
+      });
 
       setVentaCreadaId(createdId);
       setVentaResult(JSON.stringify(response, null, 2));
@@ -686,10 +796,14 @@ export default function VentasScreen({ onBack }) {
         ventaId: createdId,
         cajaId: cajaId.trim(),
         metodoPago,
-        totalVenta,
-        itemsCount: items.length,
-        productos: items.map((item) => `${item.productoNombre} (${item.cantidad} ${item.unidadVenta})`),
+        totalVenta: Number.isFinite(ventaTotal) ? ventaTotal : 0,
+        itemsCount: ventaItems.length,
+        productos: productosResumen,
       });
+      setCarritosActivos((current) =>
+        current.filter((carrito) => carrito?._id !== carritoIdVendido)
+      );
+      setCarritoSeleccionadoActivo(null);
       setItems([]);
       setCarritoCreadoId('');
       resetForm();
@@ -714,16 +828,20 @@ export default function VentasScreen({ onBack }) {
           Usuario: {authUser?.email || 'sin usuario'}
         </Text>
         <Text style={styles.cardText}>
-          Sede: {(authUser?.sedeId?.nombre || authUser?.sedeId?.codigo || ((sedeId ? 'configurada' : 'sin sede') === 'configurada' && (authUser?.email || '') === 'admin.shadow@kingfruver.local' ? 'Sede Shadow (SH01)' : (sedeId ? 'configurada' : 'sin sede')))}
+          Sede: {(authUser?.sedeId?.nombre || authUser?.sedeId?.codigo || ((sedeId ? 'configurada' : 'sin sede') === 'configurada' && (authUser?.email || '') === SHADOW_ADMIN_EMAIL ? 'Sede Shadow (SH01)' : (sedeId ? 'configurada' : 'sin sede')))}
         </Text>
         <Text style={styles.cardText}>
-          Caja operativa: {(cajaOperativaLabel === 'sin caja' && (authUser?.email || '') === 'admin.shadow@kingfruver.local') ? 'Caja Shadow (CJSH01)' : cajaOperativaLabel}
+          Caja operativa: {(cajaOperativaLabel === 'sin caja' && (authUser?.email || '') === SHADOW_ADMIN_EMAIL) ? 'Caja Shadow (CJSH01)' : cajaOperativaLabel}
+        </Text>
+        <Text style={styles.cardText}>
+          Estado de caja real: {cajaEstadoOperativo}
         </Text>
         <Text style={styles.cardText}>
           Método de pago: {metodoPago}
         </Text>
       </View>
 
+      {!isCajero ? (
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Productos disponibles</Text>
 
@@ -799,7 +917,7 @@ export default function VentasScreen({ onBack }) {
                       isSelectedSuggestion && styles.suggestionMetaSelected,
                     ]}
                   >
-                    Stock: {item.stockDisponible} | Costo ref: {formatCurrency(item.costoPromedio || 0)}
+                    Stock: {item.stockDisponible} | Precio venta: {formatPrecioDeVenta(item)}
                   </Text>
                 </Pressable>
               );
@@ -807,7 +925,9 @@ export default function VentasScreen({ onBack }) {
           </View>
         ) : null}
       </View>
+      ) : null}
 
+      {!isCajero ? (
       <View style={styles.card}>
         <Text style={styles.cardTitle}>
           {editingItemId ? 'Editar item' : 'Agregar item'}
@@ -837,7 +957,7 @@ export default function VentasScreen({ onBack }) {
               Stock disponible: {selectedInventario.stockDisponible}
             </Text>
             <Text style={styles.selectedBoxText}>
-              Precio desde inventario: {formatCurrency(selectedInventario.costoPromedio || 0)}
+              Precio de venta aplicado: {formatPrecioDeVenta(selectedInventario)}
             </Text>
           </View>
         ) : (
@@ -881,13 +1001,14 @@ export default function VentasScreen({ onBack }) {
 
         {editingItemId ? (
           <Pressable style={styles.cancelEditButton} onPress={handleCancelarEdicion}>
-            <Text style={styles.cancelEditButtonText}>Cancelar edicion</Text>
+            <Text style={styles.cancelEditButtonText}>Cancelar edición</Text>
           </Pressable>
         ) : null}
       </View>
+      ) : null}
 
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Notas y metodo de pago</Text>
+        <Text style={styles.cardTitle}>Notas y método de pago</Text>
         <TextInput
           value={notas}
           onChangeText={setNotas}
@@ -915,22 +1036,41 @@ export default function VentasScreen({ onBack }) {
           })}
         </View>
 
-        <Pressable style={styles.prepareButton} onPress={handlePrepararPayload}>
-          <Text style={styles.prepareButtonText}>Preparar payload local</Text>
-        </Pressable>
+        {!isCajero ? (
+          <Pressable style={styles.prepareButton} onPress={handlePrepararPayload}>
+            <Text style={styles.prepareButtonText}>Preparar payload local</Text>
+          </Pressable>
+        ) : null}
       </View>
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Flujo real</Text>
 
-        <Pressable style={styles.realButton} onPress={handleCrearCarritoReal}>
-          <Text style={styles.realButtonText}>Crear carrito real en shadow</Text>
-        </Pressable>
+        {!cajaRealAbierta ? (
+          <Text style={styles.cardText}>
+            No hay una caja abierta real para esta sede. Ve a Cajas, abre una caja y vuelve a Ventas.
+          </Text>
+        ) : null}
 
-        {creatingCarrito ? <ActivityIndicator size="large" style={styles.loader} /> : null}
+        {!isCajero ? (
+          <>
+            <Pressable
+              style={[
+                styles.realButton,
+                creatingCarrito && styles.actionDisabledButton,
+              ]}
+              onPress={handleCrearCarritoReal}
+              disabled={creatingCarrito}
+            >
+              <Text style={styles.realButtonText}>Crear carrito real en shadow</Text>
+            </Pressable>
 
-        {carritoCreadoId ? (
-          <Text style={styles.successText}>carritoId creado: {carritoCreadoId}</Text>
+            {creatingCarrito ? <ActivityIndicator size="large" style={styles.loader} /> : null}
+
+            {carritoCreadoId ? (
+              <Text style={styles.successText}>carritoId creado: {carritoCreadoId}</Text>
+            ) : null}
+          </>
         ) : null}
 
         <Pressable style={styles.queryButton} onPress={handleConsultarCarritos}>
@@ -939,7 +1079,106 @@ export default function VentasScreen({ onBack }) {
 
         {loadingCarritos ? <ActivityIndicator size="large" style={styles.loader} /> : null}
 
-        <Pressable style={styles.saleButton} onPress={handleCrearVentaReal}>
+        {carritosActivos.length > 0 ? (
+          <View style={styles.suggestionsBox}>
+            <Text style={styles.label}>Carritos activos</Text>
+            {carritosActivos.map((carrito) => (
+              (() => {
+                const carritoItems = extractCarritoItems(carrito);
+                const productosResumen = carritoItems.length > 0
+                  ? carritoItems
+                      .map((item) => {
+                        const nombre = item?.productoNombre || item?.nombre || 'Producto';
+                        const cantidadItem = Number(item?.cantidad);
+                        const unidadItem = item?.unidadVenta || item?.unidad || 'und';
+                        const subtotalItem = Number(item?.subtotal);
+                        const cantidadTexto = Number.isFinite(cantidadItem) ? cantidadItem : 0;
+                        const subtotalTexto = Number.isFinite(subtotalItem)
+                          ? ` = ${formatCurrency(subtotalItem)}`
+                          : '';
+                        return `${nombre} (${cantidadTexto} ${unidadItem})${subtotalTexto}`;
+                      })
+                      .join(' | ')
+                  : 'Sin detalle de productos';
+                const requiereRevisionQa = carritoItems.some((item) => {
+                  const nombre = String(item?.productoNombre || item?.nombre || '').toLowerCase();
+                  return (
+                    nombre.includes('qa') ||
+                    nombre.includes('test') ||
+                    nombre.includes('prueba') ||
+                    nombre.includes('carrito')
+                  );
+                });
+
+                return (
+                  <Pressable
+                    key={carrito._id}
+                    style={[
+                      styles.suggestionItem,
+                      carritoCreadoId === carrito._id && styles.suggestionItemSelected,
+                    ]}
+                    onPress={() => {
+                      setCarritoCreadoId(carrito._id);
+                      setCarritoSeleccionadoActivo(carrito);
+                      setVentaResult(`Carrito seleccionado para cobrar: ${carrito._id}`);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.suggestionTitle,
+                        carritoCreadoId === carrito._id && styles.suggestionTitleSelected,
+                      ]}
+                    >
+                      ID: {carrito._id}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.suggestionMeta,
+                        carritoCreadoId === carrito._id && styles.suggestionMetaSelected,
+                      ]}
+                    >
+                      Total: {formatCurrency(carrito?.total)} | Estado: {carrito?.estado || 'activo'} |
+                      {' '}Items: {carritoItems.length}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.suggestionMeta,
+                        carritoCreadoId === carrito._id && styles.suggestionMetaSelected,
+                      ]}
+                    >
+                      Productos: {productosResumen}
+                    </Text>
+                    {requiereRevisionQa ? (
+                      <Text
+                        style={[
+                          styles.suggestionMeta,
+                          carritoCreadoId === carrito._id && styles.suggestionMetaSelected,
+                        ]}
+                      >
+                        Revisar: carrito de prueba o QA
+                      </Text>
+                    ) : null}
+                  </Pressable>
+                );
+              })()
+            ))}
+          </View>
+        ) : null}
+
+        {carritoCreadoId ? (
+          <Text style={styles.successText}>
+            Carrito seleccionado para cobrar: {carritoCreadoId}
+          </Text>
+        ) : null}
+
+        <Pressable
+          style={[
+            styles.saleButton,
+            (!cajaRealAbierta || creatingVenta) && styles.actionDisabledButton,
+          ]}
+          onPress={handleCrearVentaReal}
+          disabled={!cajaRealAbierta || creatingVenta}
+        >
           <Text style={styles.saleButtonText}>Crear venta real en shadow</Text>
         </Pressable>
 
@@ -958,11 +1197,12 @@ export default function VentasScreen({ onBack }) {
           onPress={() => setShowTechnicalDetails((current) => !current)}
         >
           <Text style={styles.technicalToggleButtonText}>
-            {showTechnicalDetails ? 'Ocultar detalles tecnicos' : 'Mostrar detalles tecnicos'}
+            {showTechnicalDetails ? 'Ocultar detalles técnicos' : 'Mostrar detalles técnicos'}
           </Text>
         </Pressable>
       </View>
 
+      {!isCajero ? (
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Resumen provisional</Text>
 
@@ -973,18 +1213,42 @@ export default function VentasScreen({ onBack }) {
           </View>
 
           <View style={styles.summaryChip}>
-            <Text style={styles.summaryChipLabel}>Metodo</Text>
+            <Text style={styles.summaryChipLabel}>Método</Text>
             <Text style={styles.summaryChipValue}>{metodoPago}</Text>
           </View>
         </View>
 
-        <Text style={styles.summaryTotal}>Total: {formatCurrency(totalVenta)}</Text>
+        <View style={styles.summaryRow}>
+          <View style={styles.summaryChip}>
+            <Text style={styles.summaryChipLabel}>Caja</Text>
+            <Text style={styles.summaryChipValue}>{cajaOperativaLabel}</Text>
+          </View>
+
+          <View style={styles.summaryChip}>
+            <Text style={styles.summaryChipLabel}>Total</Text>
+            <Text style={styles.summaryChipValue}>{formatCurrency(totalVenta)}</Text>
+          </View>
+        </View>
+
+        {items.length === 0 ? (
+          <Text style={styles.cardText}>Todavía no hay items para resumir.</Text>
+        ) : (
+          <View>
+            {items.map((item) => (
+              <Text key={`summary-${item.id}`} style={styles.cardText}>
+                {item.productoNombre}: {item.cantidad} {item.unidadVenta} x {formatCurrency(item.precioUnitario)} = {formatCurrency(item.subtotal)}
+              </Text>
+            ))}
+          </View>
+        )}
 
         <Pressable style={styles.clearCartButton} onPress={handleVaciarCarritoLocal}>
           <Text style={styles.clearCartButtonText}>Vaciar carrito local</Text>
         </Pressable>
       </View>
+      ) : null}
 
+      {!isCajero ? (
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Items cargados</Text>
 
@@ -1000,7 +1264,7 @@ export default function VentasScreen({ onBack }) {
         ) : null}
 
         {items.length === 0 ? (
-          <Text style={styles.emptyText}>Todavia no has agregado items.</Text>
+          <Text style={styles.emptyText}>Todavía no has agregado items.</Text>
         ) : (
           items.map((item) => (
             <View key={item.id} style={styles.itemRow}>
@@ -1037,13 +1301,14 @@ export default function VentasScreen({ onBack }) {
           ))
         )}
       </View>
+      ) : null}
 
       {lastSaleSummary ? (
         <View style={styles.successBanner}>
           <Text style={styles.successBannerTitle}>Venta creada con exito</Text>
           <Text style={styles.successBannerText}>ventaId: {lastSaleSummary.ventaId}</Text>
           <Text style={styles.successBannerText}>Caja: {cajaOperativaLabel}</Text>
-          <Text style={styles.successBannerText}>metodoPago: {lastSaleSummary.metodoPago}</Text>
+          <Text style={styles.successBannerText}>Método de pago aplicado: {lastSaleSummary.metodoPago}</Text>
           <Text style={styles.successBannerText}>total: {formatCurrency(lastSaleSummary.totalVenta)}</Text>
           <Text style={styles.successBannerText}>items: {lastSaleSummary.itemsCount}</Text>
           <Text style={styles.successBannerText}>
@@ -1057,7 +1322,7 @@ export default function VentasScreen({ onBack }) {
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Payload local y contratos reales</Text>
             <Text style={styles.payloadText}>
-              {payloadPreview || 'Todavia no has preparado el payload.'}
+              {payloadPreview || 'Todavía no has preparado el payload.'}
             </Text>
           </View>
 
@@ -1097,6 +1362,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     marginBottom: 14,
+  },
+  cardText: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: '#4b5563',
+    marginBottom: 6,
   },
   label: {
     fontSize: 14,
@@ -1294,7 +1565,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   prepareButton: {
-    backgroundColor: '#0f766e',
+    backgroundColor: '#111827',
     paddingVertical: 14,
     paddingHorizontal: 18,
     borderRadius: 10,
@@ -1319,7 +1590,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   queryButton: {
-    backgroundColor: '#2563eb',
+    backgroundColor: '#1f6feb',
     paddingVertical: 14,
     paddingHorizontal: 18,
     borderRadius: 10,
@@ -1346,6 +1617,9 @@ const styles = StyleSheet.create({
   loader: {
     marginTop: 12,
   },
+  actionDisabledButton: {
+    opacity: 0.55,
+  },
   cancelEditButton: {
     backgroundColor: '#e5e7eb',
     paddingVertical: 12,
@@ -1371,6 +1645,21 @@ const styles = StyleSheet.create({
   secondaryButtonText: {
     color: '#ffffff',
     fontSize: 16,
+    fontWeight: '600',
+  },
+  technicalToggleButton: {
+    width: '100%',
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#d0d7de',
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  technicalToggleButtonText: {
+    color: '#111827',
+    fontSize: 15,
     fontWeight: '600',
   },
   summaryText: {

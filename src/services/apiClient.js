@@ -92,3 +92,32 @@ export async function apiPost(path, body, options = {}) {
     timeout.clear();
   }
 }
+
+
+export async function apiPatch(path, body, options = {}) {
+  const timeoutMs = options.timeoutMs || DEFAULT_TIMEOUT_MS;
+  const timeout = createTimeoutSignal(timeoutMs);
+
+  try {
+    const response = await fetch(buildUrl(path), {
+      method: 'PATCH',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        ...(options.headers || {}),
+      },
+      body: JSON.stringify(body),
+      signal: timeout.signal,
+    });
+
+    return await parseJsonResponse(response, path, 'PATCH');
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      throw new Error(`PATCH ${path} timed out after ${timeoutMs}ms`);
+    }
+
+    throw error;
+  } finally {
+    timeout.clear();
+  }
+}

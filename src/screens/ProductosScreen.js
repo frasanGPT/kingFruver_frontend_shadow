@@ -4,8 +4,9 @@ import AppShell from '../components/AppShell';
 import SummaryStatsRow from '../components/SummaryStatsRow';
 import StatusBadge from '../components/StatusBadge';
 import StateNoticeCard from '../components/StateNoticeCard';
-import { getInventarioDisponible } from '../services/inventarioService';
+import { getInventarioDisponible, updatePrecioDeVenta } from '../services/inventarioService';
 import { loadSession } from '../services/sessionService';
+import { getRoleCode } from '../utils/accessControl';
 
 function formatCurrency(value) {
   return `$${Number(value || 0).toLocaleString('es-CO')}`;
@@ -25,6 +26,37 @@ function getStockLevel(stock) {
   return { label: 'bajo', variant: 'danger' };
 }
 
+function parsePriceInput(value) {
+  const normalized = String(value || '')
+    .replace(/\./g, '')
+    .replace(',', '.')
+    .trim();
+
+  if (!normalized) {
+    return Number.NaN;
+  }
+
+  return Number(normalized);
+}
+
+function buildPriceDraftMap(items = []) {
+  const next = {};
+
+  items.forEach((item) => {
+    next[item._id] =
+      item.precioDeVenta === null || item.precioDeVenta === undefined
+        ? ''
+        : String(item.precioDeVenta);
+  });
+
+  return next;
+}
+
+function isValidPrecioDeVentaInput(value) {
+  const parsed = parsePriceInput(value);
+  return Number.isFinite(parsed) && parsed > 0;
+}
+
 export default function ProductosScreen({ onBack }) {
   const [token, setToken] = useState('');
   const [sedeId, setSedeId] = useState('');
@@ -33,6 +65,9 @@ export default function ProductosScreen({ onBack }) {
   const [inventarioItems, setInventarioItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [screenResult, setScreenResult] = useState('Cargando productos...');
+  const [authUser, setAuthUser] = useState(null);
+  const [savingPrecioId, setSavingPrecioId] = useState('');
+  const [priceDrafts, setPriceDrafts] = useState({});
 
   const availableUnits = useMemo(() => {
     const units = Array.from(
@@ -158,6 +193,10 @@ export default function ProductosScreen({ onBack }) {
     return items;
   }, [visibleCount, inventarioItems.length, unidadFiltro, selectedUnitStockTotal]);
 
+  const isAdmin = useMemo(() => {
+    return getRoleCode(authUser) === 'admin';
+  }, [authUser]);
+
   async function loadProductos() {
     try {
       setLoading(true);
@@ -166,13 +205,16 @@ export default function ProductosScreen({ onBack }) {
       const session = await loadSession();
 
       if (!session?.token) {
+        setAuthUser(null);
         setScreenResult('No hay sesión guardada. Entra a Home, valida acceso y vuelve.');
         setInventarioItems([]);
+        setPriceDrafts({});
         return;
       }
 
       setToken(session.token || '');
       setSedeId(session.sedeId || '');
+      setAuthUser(session.usuario || null);
 
       const response = await getInventarioDisponible({
         sedeId: session.sedeId || '',
@@ -184,12 +226,81 @@ export default function ProductosScreen({ onBack }) {
       });
 
       setInventarioItems(rows);
+      setPriceDrafts(buildPriceDraftMap(rows));
       setScreenResult(`Productos cargados: ${rows.length}.`);
     } catch (error) {
       setInventarioItems([]);
+      setPriceDrafts({});
       setScreenResult(`Error: ${error.message}`);
     } finally {
       setLoading(false);
+    }
+  }
+
+  function handlePrecioDraftChange(inventarioId, value) {
+    setPriceDrafts((current) => ({
+      ...current,
+      [inventarioId]: value,
+    }));
+  }
+
+  async function handleGuardarPrecioDeVenta(item) {
+    if (!isAdmin) {
+      setScreenResult('Solo el administrador puede actualizar precio de venta.');
+      return;
+    }
+
+    if (!token) {
+      setScreenResult('No hay sesión activa. Vuelve a iniciar sesión.');
+      return;
+    }
+
+    const precioDeVenta = parsePriceInput(priceDrafts[item._id]);
+
+    if (!Number.isFinite(precioDeVenta) || precioDeVenta <= 0) {
+      setScreenResult('El precio de venta debe ser un número mayor a 0.');
+      return;
+    }
+
+    try {
+      setSavingPrecioId(item._id);
+      setScreenResult(`Guardando precio de venta para ${item.productoNombre}...`);
+
+      const response = await updatePrecioDeVenta({
+        inventarioId: item._id,
+        precioDeVenta,
+        token,
+      });
+
+      const updated = response?.data || null;
+
+      if (!updated?._id) {
+        throw new Error('Respuesta inválida al actualizar precio de venta.');
+      }
+
+      setInventarioItems((current) =>
+        current.map((row) =>
+          row._id === updated._id
+            ? {
+                ...row,
+                ...updated,
+              }
+            : row
+        )
+      );
+
+      setPriceDrafts((current) => ({
+        ...current,
+        [item._id]: String(updated.precioDeVenta ?? precioDeVenta),
+      }));
+
+      setScreenResult(
+        `Precio de venta actualizado: ${item.productoNombre} (${item.unidadBase}) = ${formatCurrency(updated.precioDeVenta)}`
+      );
+    } catch (error) {
+      setScreenResult(`Error actualizando precio de venta: ${error.message}`);
+    } finally {
+      setSavingPrecioId('');
     }
   }
 
@@ -244,7 +355,7 @@ export default function ProductosScreen({ onBack }) {
 
         <Text style={styles.helperText}>
           Unidades detectadas desde inventario: {detectedUnitsText}{'\n'}
-          Token cargado: {token ? 'si' : 'no'}
+          Sesión activa: {token ? 'sí' : 'no'}
         </Text>
       </View>
 
@@ -298,6 +409,48 @@ export default function ProductosScreen({ onBack }) {
                     {formatCurrency(item.costoPromedio || 0)}
                   </Text>
                 </View>
+
+                <View style={styles.productDetailRow}>
+                  <Text style={styles.productLabel}>Precio de venta</Text>
+                  <Text style={styles.productValue}>
+                    {item.precioDeVenta === null || item.precioDeVenta === undefined
+                      ? 'sin configurar'
+                      : formatCurrency(item.precioDeVenta)}
+                  </Text>
+                </View>
+
+                {isAdmin ? (
+                  <View style={styles.priceAdminBox}>
+                    <Text style={styles.productLabel}>Editar precio de venta</Text>
+                    <TextInput
+                      value={priceDrafts[item._id] ?? ''}
+                      onChangeText={(value) => handlePrecioDraftChange(item._id, value)}
+                      placeholder="Ej: 3500"
+                      keyboardType="decimal-pad"
+                      style={styles.input}
+                    />
+
+                    {priceDrafts[item._id] !== '' && !isValidPrecioDeVentaInput(priceDrafts[item._id]) ? (
+                      <Text style={styles.inlineValidationText}>
+                        El precio de venta debe ser mayor a 0.
+                      </Text>
+                    ) : null}
+
+                    <Pressable
+                      style={[
+                        styles.savePriceButton,
+                        (savingPrecioId === item._id || !isValidPrecioDeVentaInput(priceDrafts[item._id])) &&
+                          styles.savePriceButtonDisabled,
+                      ]}
+                      onPress={() => handleGuardarPrecioDeVenta(item)}
+                      disabled={savingPrecioId === item._id || !isValidPrecioDeVentaInput(priceDrafts[item._id])}
+                    >
+                      <Text style={styles.savePriceButtonText}>
+                        {savingPrecioId === item._id ? 'Guardando...' : 'Guardar precio de venta'}
+                      </Text>
+                    </Pressable>
+                  </View>
+                ) : null}
               </View>
             );
           })
@@ -425,6 +578,32 @@ const styles = StyleSheet.create({
     borderColor: '#e5e7eb',
     borderRadius: 12,
     padding: 14,
+    marginBottom: 10,
+  },
+  priceAdminBox: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+  },
+  savePriceButton: {
+    backgroundColor: '#1f6feb',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  savePriceButtonDisabled: {
+    opacity: 0.7,
+  },
+  savePriceButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  inlineValidationText: {
+    color: '#b91c1c',
+    fontSize: 13,
     marginBottom: 10,
   },
   productHeader: {
