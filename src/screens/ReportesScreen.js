@@ -5,6 +5,7 @@ import StatusBadge from '../components/StatusBadge';
 import StateNoticeCard from '../components/StateNoticeCard';
 import { getArqueos } from '../services/arqueoService';
 import { getCajas } from '../services/cajaService';
+import { getCarritos } from '../services/carritoService';
 import { loadSession } from '../services/sessionService';
 import { getVentas } from '../services/ventaService';
 
@@ -59,6 +60,14 @@ function getArqueoSemantic(diferencia) {
   };
 }
 
+function shortId(value) {
+  const raw = String(value || '').trim();
+  if (!raw) {
+    return 'sin valor';
+  }
+  return raw.length > 8 ? raw.slice(-8) : raw;
+}
+
 
 function buildDateRangeText(rows, getDateValue) {
   if (!Array.isArray(rows) || rows.length === 0) {
@@ -87,8 +96,14 @@ export default function ReportesScreen({ onBack }) {
   const [token, setToken] = useState('');
   const [rawVentas, setRawVentas] = useState([]);
   const [rawArqueos, setRawArqueos] = useState([]);
+  const [rawCarritosActivos, setRawCarritosActivos] = useState([]);
+  const [rawCarritosCobrables, setRawCarritosCobrables] = useState([]);
+  const [rawCarritosCobrados, setRawCarritosCobrados] = useState([]);
   const [ventas, setVentas] = useState([]);
   const [arqueos, setArqueos] = useState([]);
+  const [carritosActivos, setCarritosActivos] = useState([]);
+  const [carritosCobrables, setCarritosCobrables] = useState([]);
+  const [carritosCobrados, setCarritosCobrados] = useState([]);
   const [cajas, setCajas] = useState([]);
   const [selectedCajaId, setSelectedCajaId] = useState('');
   const [selectedMetodoPago, setSelectedMetodoPago] = useState('todos');
@@ -203,7 +218,26 @@ export default function ReportesScreen({ onBack }) {
     );
   }, [rawArqueos]);
 
-  function applyVisibleTimeFilter(timeRange, ventasRows, arqueosRows) {
+  const carritosCobradosById = useMemo(() => {
+    const map = new Map();
+    rawCarritosCobrados.forEach((carrito) => {
+      if (carrito?._id) {
+        map.set(String(carrito._id), carrito);
+      }
+    });
+    return map;
+  }, [rawCarritosCobrados]);
+
+  const ventasRecientes = useMemo(() => ventas.slice(0, 5), [ventas]);
+
+  function applyVisibleTimeFilter(
+    timeRange,
+    ventasRows,
+    arqueosRows,
+    carritosActivosRows,
+    carritosCobrablesRows,
+    carritosCobradosRows
+  ) {
     const now = new Date();
 
     function filterRows(rows, getDateValue) {
@@ -237,9 +271,24 @@ export default function ReportesScreen({ onBack }) {
       arqueosRows,
       (arqueo) => arqueo?.fechaArqueo || arqueo?.createdAt
     );
+    const carritosActivosFiltrados = filterRows(
+      carritosActivosRows,
+      (carrito) => carrito?.createdAt
+    );
+    const carritosCobrablesFiltrados = filterRows(
+      carritosCobrablesRows,
+      (carrito) => carrito?.createdAt
+    );
+    const carritosCobradosFiltrados = filterRows(
+      carritosCobradosRows,
+      (carrito) => carrito?.createdAt
+    );
 
     setVentas(ventasFiltradas);
     setArqueos(arqueosFiltrados);
+    setCarritosActivos(carritosActivosFiltrados);
+    setCarritosCobrables(carritosCobrablesFiltrados);
+    setCarritosCobrados(carritosCobradosFiltrados);
   }
 
   async function loadReportes(nextFilters = {}) {
@@ -253,6 +302,12 @@ export default function ReportesScreen({ onBack }) {
         setScreenResult('No hay sesión guardada. Entra a Home, valida acceso y vuelve.');
         setVentas([]);
         setArqueos([]);
+        setRawCarritosActivos([]);
+        setRawCarritosCobrables([]);
+        setRawCarritosCobrados([]);
+        setCarritosActivos([]);
+        setCarritosCobrables([]);
+        setCarritosCobrados([]);
         setCajas([]);
         return;
       }
@@ -275,7 +330,7 @@ export default function ReportesScreen({ onBack }) {
       setToken(effectiveToken);
       setSedeId(effectiveSedeId);
 
-      const [ventasResponse, arqueosResponse, cajasResponse] = await Promise.all([
+      const [ventasResponse, arqueosResponse, cajasResponse, carritosActivosResponse, carritosCobrablesResponse, carritosCobradosResponse] = await Promise.all([
         getVentas(
           {
             sedeId: effectiveSedeId,
@@ -298,23 +353,64 @@ export default function ReportesScreen({ onBack }) {
           activo: true,
           token: effectiveToken,
         }),
+        getCarritos(
+          {
+            sedeId: effectiveSedeId,
+            estado: 'activo',
+          },
+          effectiveToken
+        ),
+        getCarritos(
+          {
+            sedeId: effectiveSedeId,
+            estado: 'activo',
+            cobrables: true,
+          },
+          effectiveToken
+        ),
+        getCarritos(
+          {
+            sedeId: effectiveSedeId,
+            estado: 'cobrado',
+          },
+          effectiveToken
+        ),
       ]);
 
       const ventasRows = ventasResponse?.data || [];
       const arqueosRows = arqueosResponse?.data || [];
       const cajasRows = cajasResponse?.data || [];
+      const carritosActivosRows = carritosActivosResponse?.data || [];
+      const carritosCobrablesRows = carritosCobrablesResponse?.data || [];
+      const carritosCobradosRows = carritosCobradosResponse?.data || [];
 
       setRawVentas(ventasRows);
       setRawArqueos(arqueosRows);
-      applyVisibleTimeFilter(effectiveTimeRange, ventasRows, arqueosRows);
+      setRawCarritosActivos(carritosActivosRows);
+      setRawCarritosCobrables(carritosCobrablesRows);
+      setRawCarritosCobrados(carritosCobradosRows);
+      applyVisibleTimeFilter(
+        effectiveTimeRange,
+        ventasRows,
+        arqueosRows,
+        carritosActivosRows,
+        carritosCobrablesRows,
+        carritosCobradosRows
+      );
       setCajas(cajasRows);
 
       setScreenResult(
-        `Resumen cargado. Ventas: ${ventasRows.length}. Arqueos: ${arqueosRows.length}.`
+        `Resumen cargado. Ventas: ${ventasRows.length}. Arqueos: ${arqueosRows.length}. Carritos activos: ${carritosActivosRows.length}.`
       );
     } catch (error) {
       setVentas([]);
       setArqueos([]);
+      setRawCarritosActivos([]);
+      setRawCarritosCobrables([]);
+      setRawCarritosCobrados([]);
+      setCarritosActivos([]);
+      setCarritosCobrables([]);
+      setCarritosCobrados([]);
       setCajas([]);
       setScreenResult(`Error: ${error.message}`);
     } finally {
@@ -519,6 +615,12 @@ export default function ReportesScreen({ onBack }) {
 
         <Text style={styles.totalText}>Total vendido: {formatCurrency(totalVentas)}</Text>
         <Text style={styles.activityText}>Última actividad: {ultimaActividad}</Text>
+        <Text style={styles.activityText}>Carritos activos: {carritosActivos.length}</Text>
+        <Text style={styles.activityText}>Carritos cobrables: {carritosCobrables.length}</Text>
+        <Text style={styles.activityText}>
+          Carritos no cobrables: {Math.max(carritosActivos.length - carritosCobrables.length, 0)}
+        </Text>
+        <Text style={styles.activityText}>Carritos cobrados: {carritosCobrados.length}</Text>
       </View>
 
       <View style={styles.card}>
@@ -536,6 +638,19 @@ export default function ReportesScreen({ onBack }) {
             </Text>
             <Text style={styles.metricBlock}>
               Método de pago: {ultimaVenta.metodoPago || 'sin valor'}
+            </Text>
+            <Text style={styles.metricBlock}>
+              Cajero: {ultimaVenta?.usuarioId?.email || ultimaVenta?.usuarioId?.nombre || 'sin valor'}
+            </Text>
+            <Text style={styles.metricBlock}>
+              carritoId: {shortId(ultimaVenta?.carritoId?._id || ultimaVenta?.carritoId)}
+            </Text>
+            <Text style={styles.metricBlock}>
+              Preparador: {(() => {
+                const carritoId = String(ultimaVenta?.carritoId?._id || ultimaVenta?.carritoId || '');
+                const carrito = carritosCobradosById.get(carritoId);
+                return carrito?.usuarioId?.email || carrito?.usuarioId?.nombre || 'no disponible';
+              })()}
             </Text>
             <Text style={styles.metricBlock}>
               Items: {Array.isArray(ultimaVenta.items) ? ultimaVenta.items.length : 0}
@@ -559,6 +674,35 @@ export default function ReportesScreen({ onBack }) {
               </View>
             ) : null}
           </>
+        )}
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Ventas recientes</Text>
+        {ventasRecientes.length === 0 ? (
+          <Text style={styles.emptyText}>No hay ventas en el filtro actual.</Text>
+        ) : (
+          ventasRecientes.map((venta) => {
+            const carritoId = String(venta?.carritoId?._id || venta?.carritoId || '');
+            const carrito = carritosCobradosById.get(carritoId);
+            const preparador = carrito?.usuarioId?.email || carrito?.usuarioId?.nombre || 'no disponible';
+            return (
+              <View key={venta._id} style={styles.detailListBox}>
+                <Text style={styles.metricBlock}>Fecha: {formatDateTime(venta.createdAt)}</Text>
+                <Text style={styles.metricBlock}>ventaId: {shortId(venta._id)}</Text>
+                <Text style={styles.metricBlock}>
+                  Cajero: {venta?.usuarioId?.email || venta?.usuarioId?.nombre || 'sin valor'}
+                </Text>
+                <Text style={styles.metricBlock}>
+                  Caja: {venta?.cajaId?.nombre || 'sin valor'} ({venta?.cajaId?.codigo || 'sin valor'})
+                </Text>
+                <Text style={styles.metricBlock}>carritoId: {shortId(carritoId)}</Text>
+                <Text style={styles.metricBlock}>Preparador: {preparador}</Text>
+                <Text style={styles.metricBlock}>Método: {venta?.metodoPago || 'sin valor'}</Text>
+                <Text style={styles.metricBlock}>Total: {formatCurrency(venta?.total || 0)}</Text>
+              </View>
+            );
+          })
         )}
       </View>
 
