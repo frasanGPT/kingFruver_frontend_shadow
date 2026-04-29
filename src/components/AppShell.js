@@ -21,6 +21,7 @@ export default function AppShell({
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" />
+
       <ScrollView contentContainerStyle={contentStyle}>
         <View style={styles.inner}>
           <Text style={styles.title}>{title}</Text>
@@ -36,7 +37,7 @@ export default function AppShell({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#f4f6f8',
+    backgroundColor: '#fff5f5',
   },
   scrollContentCenter: {
     flexGrow: 1,
