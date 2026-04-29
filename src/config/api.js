@@ -1,1 +1,5 @@
-export const API_BASE_URL = 'https://kingfruver-api-shadow.onrender.com';
+import { getApiBaseUrl } from './environments';
+
+export { getApiBaseUrl };
+
+export const API_BASE_URL = getApiBaseUrl();

@@ -1,13 +1,27 @@
 import * as SecureStore from 'expo-secure-store';
+import {
+  getActiveEnvironmentKey,
+  getEnvironment,
+} from '../config/environments';
 
-const SESSION_KEY = 'kingfruver_shadow_session_v1';
-
-export async function saveSession(session) {
-  await SecureStore.setItemAsync(SESSION_KEY, JSON.stringify(session));
+function getSessionKey(environmentKey = getActiveEnvironmentKey()) {
+  return getEnvironment(environmentKey).sessionKey;
 }
 
-export async function loadSession() {
-  const raw = await SecureStore.getItemAsync(SESSION_KEY);
+export async function saveSession(session, environmentKey = getActiveEnvironmentKey()) {
+  const environment = getEnvironment(environmentKey);
+  const sessionToSave = {
+    ...session,
+    environmentKey: environment.key,
+    environmentLabel: environment.label,
+  };
+
+  await SecureStore.setItemAsync(environment.sessionKey, JSON.stringify(sessionToSave));
+}
+
+export async function loadSession(environmentKey = getActiveEnvironmentKey()) {
+  const sessionKey = getSessionKey(environmentKey);
+  const raw = await SecureStore.getItemAsync(sessionKey);
 
   if (!raw) {
     return null;
@@ -16,11 +30,11 @@ export async function loadSession() {
   try {
     return JSON.parse(raw);
   } catch (error) {
-    await SecureStore.deleteItemAsync(SESSION_KEY);
+    await SecureStore.deleteItemAsync(sessionKey);
     return null;
   }
 }
 
-export async function clearSession() {
-  await SecureStore.deleteItemAsync(SESSION_KEY);
+export async function clearSession(environmentKey = getActiveEnvironmentKey()) {
+  await SecureStore.deleteItemAsync(getSessionKey(environmentKey));
 }

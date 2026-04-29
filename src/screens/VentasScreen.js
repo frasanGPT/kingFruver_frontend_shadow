@@ -14,10 +14,35 @@ import { getInventarioDisponible } from '../services/inventarioService';
 import { loadSession, saveSession } from '../services/sessionService';
 import { getCajas } from '../services/cajaService';
 import { getRoleCode } from '../utils/accessControl';
+import { getActiveEnvironment } from '../config/environments';
 
-const SHADOW_DEFAULT_SEDE_ID = '69aa0d3cd908c9f5f152fc2c';
-const SHADOW_DEFAULT_CAJA_ID = '69aecd84319a254c552951a8';
-const SHADOW_ADMIN_EMAIL = 'admin.shadow@kingfruver.local';
+function getVentasEnvironment() {
+  return getActiveEnvironment();
+}
+
+function getDefaultSedeId() {
+  return getVentasEnvironment().defaultSedeId;
+}
+
+function getDefaultCajaId() {
+  return getVentasEnvironment().defaultCajaId;
+}
+
+function getDefaultSedeLabel() {
+  return getVentasEnvironment().defaultSedeLabel;
+}
+
+function getDefaultCajaLabel() {
+  return getVentasEnvironment().defaultCajaLabel;
+}
+
+function getEnvironmentAdminEmail() {
+  return getVentasEnvironment().adminEmail;
+}
+
+function getEnvironmentLabelLower() {
+  return getVentasEnvironment().label.toLowerCase();
+}
 
 function formatCurrency(value) {
   return `$${Number(value || 0).toLocaleString('es-CO')}`;
@@ -106,9 +131,9 @@ export default function VentasScreen({ onBack }) {
   const [editingItemId, setEditingItemId] = useState(null);
   const [notas, setNotas] = useState('');
   const [metodoPago, setMetodoPago] = useState('efectivo');
-  const [sedeId, setSedeId] = useState(SHADOW_DEFAULT_SEDE_ID);
+  const [sedeId, setSedeId] = useState(() => getDefaultSedeId());
   const [usuarioId, setUsuarioId] = useState('');
-  const [cajaId, setCajaId] = useState(SHADOW_DEFAULT_CAJA_ID);
+  const [cajaId, setCajaId] = useState(() => getDefaultCajaId());
   const [cajaOperativaLabel, setCajaOperativaLabel] = useState('sin caja');
   const [cajaRealAbierta, setCajaRealAbierta] = useState(false);
   const [cajaEstadoOperativo, setCajaEstadoOperativo] = useState('sin validar');
@@ -151,13 +176,13 @@ export default function VentasScreen({ onBack }) {
 
         const restoredUser = session.usuario || session.authUser || null;
         const restoredSedeId =
-          session.sedeId || extractSedeIdFromUser(restoredUser) || SHADOW_DEFAULT_SEDE_ID;
+          session.sedeId || extractSedeIdFromUser(restoredUser) || getDefaultSedeId();
 
         setBearerToken(session.token || '');
         setAuthUser(restoredUser);
         setUsuarioId(session.usuarioId || restoredUser?._id || '');
         setSedeId(restoredSedeId);
-        setCajaId(session.cajaId || SHADOW_DEFAULT_CAJA_ID);
+        setCajaId(session.cajaId || getDefaultCajaId());
         setMetodoPago(session.metodoPago || 'efectivo');
         setRecentSelections(session.recentSelections || []);
         setAuthResult(
@@ -371,8 +396,8 @@ export default function VentasScreen({ onBack }) {
         setCajaRealAbierta(false);
         setCajaEstadoOperativo('sin caja');
 
-        if ((authUser?.email || '') === SHADOW_ADMIN_EMAIL) {
-          setCajaOperativaLabel('Caja Shadow (CJSH01)');
+        if ((authUser?.email || '') === getEnvironmentAdminEmail()) {
+          setCajaOperativaLabel(getDefaultCajaLabel());
           return;
         }
 
@@ -636,7 +661,7 @@ export default function VentasScreen({ onBack }) {
 
     try {
       setLoadingInventario(true);
-      setInventarioResult('Consultando inventario disponible en shadow...');
+      setInventarioResult(`Consultando inventario disponible en ${getEnvironmentLabelLower()}...`);
 
       const response = await getInventarioDisponible({
         sedeId: sedeId.trim(),
@@ -678,7 +703,7 @@ export default function VentasScreen({ onBack }) {
 
     try {
       setCreatingCarrito(true);
-      setCarritoResult('Creando carrito real en shadow...');
+      setCarritoResult(`Creando carrito real en ${getEnvironmentLabelLower()}...`);
       const payload = buildContratoCarritoReal();
       const response = await createCarrito(payload, bearerToken.trim());
       const createdId = response?.data?._id || '';
@@ -707,7 +732,7 @@ export default function VentasScreen({ onBack }) {
 
     try {
       setLoadingCarritos(true);
-      setCarritosQueryResult('Consultando carritos activos en shadow...');
+      setCarritosQueryResult(`Consultando carritos activos en ${getEnvironmentLabelLower()}...`);
 
       const response = await getCarritos(
         {
@@ -757,7 +782,7 @@ export default function VentasScreen({ onBack }) {
 
     try {
       setCreatingVenta(true);
-      setVentaResult('Creando venta real en shadow...');
+      setVentaResult(`Creando venta real en ${getEnvironmentLabelLower()}...`);
 
       const payload = {
         carritoId: carritoCreadoId.trim(),
@@ -838,7 +863,7 @@ export default function VentasScreen({ onBack }) {
 
     try {
       setCancellingCarrito(true);
-      setCarritosQueryResult('Cancelando carrito activo en shadow...');
+      setCarritosQueryResult(`Cancelando carrito activo en ${getEnvironmentLabelLower()}...`);
       const response = await cancelCarrito(
         carritoId,
         motivoCancelacionCarrito.trim() || 'Cancelación operativa',
@@ -880,10 +905,10 @@ export default function VentasScreen({ onBack }) {
           Usuario: {authUser?.email || 'sin usuario'}
         </Text>
         <Text style={styles.cardText}>
-          Sede: {(authUser?.sedeId?.nombre || authUser?.sedeId?.codigo || ((sedeId ? 'configurada' : 'sin sede') === 'configurada' && (authUser?.email || '') === SHADOW_ADMIN_EMAIL ? 'Sede Shadow (SH01)' : (sedeId ? 'configurada' : 'sin sede')))}
+          Sede: {(authUser?.sedeId?.nombre || authUser?.sedeId?.codigo || ((sedeId ? 'configurada' : 'sin sede') === 'configurada' && (authUser?.email || '') === getEnvironmentAdminEmail() ? getDefaultSedeLabel() : (sedeId ? 'configurada' : 'sin sede')))}
         </Text>
         <Text style={styles.cardText}>
-          Caja operativa: {(cajaOperativaLabel === 'sin caja' && (authUser?.email || '') === SHADOW_ADMIN_EMAIL) ? 'Caja Shadow (CJSH01)' : cajaOperativaLabel}
+          Caja operativa: {(cajaOperativaLabel === 'sin caja' && (authUser?.email || '') === getEnvironmentAdminEmail()) ? getDefaultCajaLabel() : cajaOperativaLabel}
         </Text>
         <Text style={styles.cardText}>
           Estado de caja real: {cajaEstadoOperativo}
@@ -1064,7 +1089,7 @@ export default function VentasScreen({ onBack }) {
         <TextInput
           value={notas}
           onChangeText={setNotas}
-          placeholder="Ej: Venta de prueba desde frontend shadow"
+          placeholder={`Ej: Venta de prueba desde frontend ${getEnvironmentLabelLower()}`}
           multiline
           textAlignVertical="top"
           style={styles.notesInput}
@@ -1114,7 +1139,7 @@ export default function VentasScreen({ onBack }) {
               onPress={handleCrearCarritoReal}
               disabled={creatingCarrito}
             >
-              <Text style={styles.realButtonText}>Crear carrito real en shadow</Text>
+              <Text style={styles.realButtonText}>{`Crear carrito real en ${getEnvironmentLabelLower()}`}</Text>
             </Pressable>
 
             {creatingCarrito ? <ActivityIndicator size="large" style={styles.loader} /> : null}
@@ -1254,7 +1279,7 @@ export default function VentasScreen({ onBack }) {
           onPress={handleCrearVentaReal}
           disabled={!cajaRealAbierta || creatingVenta}
         >
-          <Text style={styles.saleButtonText}>Crear venta real en shadow</Text>
+          <Text style={styles.saleButtonText}>{`Crear venta real en ${getEnvironmentLabelLower()}`}</Text>
         </Pressable>
 
         {creatingVenta ? <ActivityIndicator size="large" style={styles.loader} /> : null}

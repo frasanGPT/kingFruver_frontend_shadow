@@ -6,6 +6,10 @@ import LoginAccessCard from '../components/LoginAccessCard';
 import QuickActionCard from '../components/QuickActionCard';
 import { getHealth } from '../services/healthService';
 import { loadSession } from '../services/sessionService';
+import {
+  getActiveEnvironment,
+  loadActiveEnvironment,
+} from '../services/environmentService';
 import { buildModuleAccess } from '../utils/accessControl';
 
 function buildHealthText(data) {
@@ -19,21 +23,18 @@ function buildHealthText(data) {
 }
 
 export default function HomeScreen({ onOpenSection }) {
+  const [activeEnvironment, setActiveEnvironment] = useState(getActiveEnvironment());
   const [loading, setLoading] = useState(false);
   const [loadingSession, setLoadingSession] = useState(true);
-  const [resultText, setResultText] = useState(
-    'Listo para verificar conexion con el backend shadow.'
-  );
+  const [resultText, setResultText] = useState(activeEnvironment.copy.healthReady);
   const [status, setStatus] = useState('idle');
   const [session, setSession] = useState(null);
 
-  async function handleCheckHealth() {
+  async function handleCheckHealth(environmentOverride = activeEnvironment) {
     try {
       setLoading(true);
       setStatus('loading');
-      setResultText(
-        'Conectando con backend shadow...\nEsto puede tardar unos segundos si el servicio esta despertando.'
-      );
+      setResultText(environmentOverride.copy.healthLoading);
 
       const data = await getHealth();
 
@@ -53,6 +54,13 @@ export default function HomeScreen({ onOpenSection }) {
 
   function handleSessionChange(nextSession) {
     setSession(nextSession);
+  }
+
+  function handleEnvironmentChange(nextEnvironment, nextSession) {
+    setActiveEnvironment(nextEnvironment);
+    setSession(nextSession || null);
+    setResultText(nextEnvironment.copy.healthReady);
+    setStatus('idle');
   }
 
   function getModuleBadge(sectionName) {
@@ -76,27 +84,49 @@ export default function HomeScreen({ onOpenSection }) {
   }
 
   useEffect(() => {
+    let mounted = true;
+
     async function hydrateHomeSession() {
       try {
-        const savedSession = await loadSession();
+        const environment = await loadActiveEnvironment();
+
+        if (!mounted) return;
+
+        setActiveEnvironment(environment);
+
+        const savedSession = await loadSession(environment.key);
+
+        if (!mounted) return;
+
         setSession(savedSession);
+        await handleCheckHealth(environment);
       } finally {
-        setLoadingSession(false);
+        if (mounted) {
+          setLoadingSession(false);
+        }
       }
     }
 
     hydrateHomeSession();
-    handleCheckHealth();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   return (
     <AppShell
       title="kingFruver"
-      subtitle="Frontend Shadow"
-      description="Inicio base del frontend conectado al backend shadow."
+      subtitle={`Frontend ${activeEnvironment.label}`}
+      description={`Inicio base del frontend conectado al ${activeEnvironment.copy.backendLabel}.`}
       layout="top"
+      environment={activeEnvironment}
     >
-      <LoginAccessCard onSessionChange={handleSessionChange} />
+      <LoginAccessCard
+        activeEnvironment={activeEnvironment}
+        onSessionChange={handleSessionChange}
+        onEnvironmentChange={handleEnvironmentChange}
+      />
 
       <View style={styles.grid}>
         <QuickActionCard
@@ -132,7 +162,7 @@ export default function HomeScreen({ onOpenSection }) {
         />
       </View>
 
-      <Pressable style={styles.button} onPress={handleCheckHealth}>
+      <Pressable style={styles.button} onPress={() => handleCheckHealth(activeEnvironment)}>
         <Text style={styles.buttonText}>Reintentar GET /health</Text>
       </Pressable>
 

@@ -5,6 +5,19 @@ import StatusBadge from '../components/StatusBadge';
 import { closeCajaWithArqueo, getCajas, openCaja } from '../services/cajaService';
 import { loadSession, saveSession } from '../services/sessionService';
 import { getRoleCode } from '../utils/accessControl';
+import { getActiveEnvironment } from '../config/environments';
+
+function getCajasEnvironment() {
+  return getActiveEnvironment();
+}
+
+function getCajasEnvironmentLabelLower() {
+  return getCajasEnvironment().label.toLowerCase();
+}
+
+function getCajasBackendLabel() {
+  return getCajasEnvironment().copy.backendLabel;
+}
 
 function formatCurrency(value) {
   return `$${Number(value || 0).toLocaleString('es-CO')}`;
@@ -243,7 +256,7 @@ export default function CajasScreen({ onBack }) {
 
     try {
       setActionLoading(true);
-      setScreenResult('Abriendo caja real en shadow...');
+      setScreenResult(`Abriendo caja real en ${getCajasEnvironmentLabelLower()}...`);
 
       const response = await openCaja({
         id: selectedCaja._id,
@@ -284,7 +297,7 @@ export default function CajasScreen({ onBack }) {
 
     try {
       setActionLoading(true);
-      setScreenResult('Cerrando caja real con arqueo en shadow...');
+      setScreenResult(`Cerrando caja real con arqueo en ${getCajasEnvironmentLabelLower()}...`);
 
       const response = await closeCajaWithArqueo({
         id: selectedCaja._id,
@@ -338,8 +351,8 @@ export default function CajasScreen({ onBack }) {
       subtitle={isCajero ? 'Operación de mi caja de turno' : 'Base operativa'}
       description={
         isCajero
-          ? 'Usa esta pantalla para operar tu caja asignada de turno en backend shadow.'
-          : 'Lectura y acciones reales de cajas desde backend shadow.'
+          ? `Usa esta pantalla para operar tu caja asignada de turno en ${getCajasBackendLabel()}.`
+          : `Lectura y acciones reales de cajas desde ${getCajasBackendLabel()}.`
       }
       layout="top"
     >

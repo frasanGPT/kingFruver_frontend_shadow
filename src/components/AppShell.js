@@ -7,6 +7,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { getActiveEnvironment } from '../config/environments';
 
 export default function AppShell({
   title,
@@ -14,12 +15,15 @@ export default function AppShell({
   description,
   children,
   layout = 'center',
+  environment = getActiveEnvironment(),
 }) {
   const contentStyle =
     layout === 'top' ? styles.scrollContentTop : styles.scrollContentCenter;
 
+  const backgroundColor = environment?.theme?.backgroundColor || '#f4f6f8';
+
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor }]}>
       <StatusBar barStyle="dark-content" />
 
       <ScrollView contentContainerStyle={contentStyle}>
@@ -37,7 +41,6 @@ export default function AppShell({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#fff5f5',
   },
   scrollContentCenter: {
     flexGrow: 1,

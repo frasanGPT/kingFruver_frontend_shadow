@@ -8,6 +8,15 @@ import { getCajas } from '../services/cajaService';
 import { getCarritos } from '../services/carritoService';
 import { loadSession } from '../services/sessionService';
 import { getVentas } from '../services/ventaService';
+import { getActiveEnvironment } from '../config/environments';
+
+function getReportesEnvironment() {
+  return getActiveEnvironment();
+}
+
+function getReportesBackendLabel() {
+  return getReportesEnvironment().copy.backendLabel;
+}
 
 function formatCurrency(value) {
   return `$${Number(value || 0).toLocaleString('es-CO')}`;
@@ -485,7 +494,7 @@ export default function ReportesScreen({ onBack }) {
     <AppShell
       title="Reportes"
       subtitle="Base operativa"
-      description="Resumen real usando ventas y arqueos del backend shadow."
+      description={`Resumen real usando ventas y arqueos del ${getReportesBackendLabel()}.`}
       layout="top"
     >
       <View style={styles.card}>
