@@ -160,6 +160,14 @@ export default function HomeScreen({ onOpenSection }) {
           disabled={moduleAccess.Reportes !== true}
           onPress={() => handleOpenProtectedSection('Reportes')}
         />
+
+        <QuickActionCard
+          title="Usuarios"
+          description="Bloqueo y desbloqueo administrativo de usuarios."
+          badge={getModuleBadge('Usuarios')}
+          disabled={moduleAccess.Usuarios !== true}
+          onPress={() => handleOpenProtectedSection('Usuarios')}
+        />
       </View>
 
       <Pressable style={styles.button} onPress={() => handleCheckHealth(activeEnvironment)}>

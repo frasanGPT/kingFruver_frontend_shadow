@@ -5,6 +5,7 @@ import VentasScreen from './src/screens/VentasScreen';
 import CajasScreen from './src/screens/CajasScreen';
 import ProductosScreen from './src/screens/ProductosScreen';
 import ReportesScreen from './src/screens/ReportesScreen';
+import UsuariosScreen from './src/screens/UsuariosScreen';
 
 export default function App() {
   const [route, setRoute] = useState({ name: 'home', params: null });
@@ -27,6 +28,11 @@ export default function App() {
 
     if (sectionName === 'Reportes') {
       setRoute({ name: 'reportes', params: null });
+      return;
+    }
+
+    if (sectionName === 'Usuarios') {
+      setRoute({ name: 'usuarios', params: null });
       return;
     }
 
@@ -54,6 +60,10 @@ export default function App() {
 
   if (route.name === 'reportes') {
     return <ReportesScreen onBack={handleBackToHome} />;
+  }
+
+  if (route.name === 'usuarios') {
+    return <UsuariosScreen onBack={handleBackToHome} />;
   }
 
   if (route.name === 'section-placeholder') {

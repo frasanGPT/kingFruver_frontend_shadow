@@ -72,11 +72,13 @@ export function buildModuleAccess(usuario) {
     hasPermission(usuario, "ventas:read") &&
     hasPermission(usuario, "arqueos:read") &&
     hasPermission(usuario, "cajas:read");
+  const usuarios = roleCode === "admin" || hasPermission(usuario, "usuarios:read");
 
   return {
     Productos: productos,
     Ventas: ventas,
     Cajas: cajas,
     Reportes: reportes,
+    Usuarios: usuarios,
   };
 }
