@@ -8,6 +8,7 @@ import ReportesScreen from './src/screens/ReportesScreen';
 import UsuariosScreen from './src/screens/UsuariosScreen';
 import SeguridadScreen from './src/screens/SeguridadScreen';
 import ProveedoresScreen from './src/screens/ProveedoresScreen';
+import ComprasScreen from './src/screens/ComprasScreen';
 
 export default function App() {
   const [route, setRoute] = useState({ name: 'home', params: null });
@@ -48,6 +49,11 @@ export default function App() {
       return;
     }
 
+    if (sectionName === 'Compras') {
+      setRoute({ name: 'compras', params: null });
+      return;
+    }
+
     setRoute({
       name: 'section-placeholder',
       params: { sectionName },
@@ -84,6 +90,10 @@ export default function App() {
 
   if (route.name === 'proveedores') {
     return <ProveedoresScreen onBack={handleBackToHome} />;
+  }
+
+  if (route.name === 'compras') {
+    return <ComprasScreen onBack={handleBackToHome} />;
   }
 
   if (route.name === 'section-placeholder') {

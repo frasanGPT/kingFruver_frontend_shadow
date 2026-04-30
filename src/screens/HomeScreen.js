@@ -143,6 +143,14 @@ export default function HomeScreen({ onOpenSection }) {
             disabled={moduleAccess.Proveedores !== true}
             onPress={() => handleOpenProtectedSection('Proveedores')}
           />
+          <QuickActionCard
+            title="Compras"
+            description="Registro de compras asociadas a proveedor y sede."
+            badge={getModuleBadge('Compras')}
+            disabled={moduleAccess.Compras !== true}
+            onPress={() => handleOpenProtectedSection('Compras')}
+          />
+
 
 
         <QuickActionCard
