@@ -93,7 +93,7 @@ export default function ComprasScreen({ onBack }) {
     return proveedores.find((item) => item.id === proveedorId) || null;
   }, [proveedores, proveedorId]);
 
-  async function loadData(currentToken) {
+  async function loadData(currentToken, successMessage) {
     const effectiveToken = currentToken || token;
 
     if (!effectiveToken) {
@@ -125,13 +125,14 @@ export default function ComprasScreen({ onBack }) {
         setProveedorId(normalizedProveedores[0].id);
       }
 
-      setScreenResult(
+      const loadedMessage =
         'Compras cargadas: ' +
-          normalizedCompras.length +
-          '. Proveedores activos: ' +
-          normalizedProveedores.length +
-          '.'
-      );
+        normalizedCompras.length +
+        '. Proveedores activos: ' +
+        normalizedProveedores.length +
+        '.';
+
+      setScreenResult(successMessage ? successMessage + ' ' + loadedMessage : loadedMessage);
     } catch (error) {
       setScreenResult('Error cargando compras: ' + error.message);
     } finally {
@@ -223,8 +224,7 @@ export default function ComprasScreen({ onBack }) {
         setCostoTotalItem('');
         setFlete('');
         setNotas('');
-        setScreenResult('Compra registrada correctamente.');
-        await loadData(token);
+        await loadData(token, 'Compra registrada correctamente.');
         return;
       }
 
