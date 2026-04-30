@@ -168,6 +168,13 @@ export default function HomeScreen({ onOpenSection }) {
           disabled={moduleAccess.Usuarios !== true}
           onPress={() => handleOpenProtectedSection('Usuarios')}
         />
+          <QuickActionCard
+            title="Seguridad"
+            description="Cambio de contraseña del usuario actual."
+            badge={getModuleBadge('Seguridad')}
+            disabled={moduleAccess.Seguridad !== true}
+            onPress={() => handleOpenProtectedSection('Seguridad')}
+          />
       </View>
 
       <Pressable style={styles.button} onPress={() => handleCheckHealth(activeEnvironment)}>
