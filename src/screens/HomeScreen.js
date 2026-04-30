@@ -136,6 +136,14 @@ export default function HomeScreen({ onOpenSection }) {
           disabled={moduleAccess.Productos !== true}
           onPress={() => handleOpenProtectedSection('Productos')}
         />
+          <QuickActionCard
+            title="Proveedores"
+            description="Directorio de proveedores para compras y abastecimiento."
+            badge={getModuleBadge('Proveedores')}
+            disabled={moduleAccess.Proveedores !== true}
+            onPress={() => handleOpenProtectedSection('Proveedores')}
+          />
+
 
         <QuickActionCard
           title="Ventas"

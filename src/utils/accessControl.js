@@ -74,6 +74,8 @@ export function buildModuleAccess(usuario) {
     hasPermission(usuario, "cajas:read");
   const usuarios = roleCode === "admin" || hasPermission(usuario, "usuarios:read");
   const seguridad = Boolean(usuario);
+  const proveedores =
+    roleCode === "admin" || hasPermission(usuario, "proveedores:read");
 
   return {
     Productos: productos,
@@ -82,5 +84,6 @@ export function buildModuleAccess(usuario) {
     Reportes: reportes,
     Usuarios: usuarios,
     Seguridad: seguridad,
+    Proveedores: proveedores,
   };
 }

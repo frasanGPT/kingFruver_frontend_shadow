@@ -7,6 +7,7 @@ import ProductosScreen from './src/screens/ProductosScreen';
 import ReportesScreen from './src/screens/ReportesScreen';
 import UsuariosScreen from './src/screens/UsuariosScreen';
 import SeguridadScreen from './src/screens/SeguridadScreen';
+import ProveedoresScreen from './src/screens/ProveedoresScreen';
 
 export default function App() {
   const [route, setRoute] = useState({ name: 'home', params: null });
@@ -42,6 +43,11 @@ export default function App() {
       return;
     }
 
+    if (sectionName === 'Proveedores') {
+      setRoute({ name: 'proveedores', params: null });
+      return;
+    }
+
     setRoute({
       name: 'section-placeholder',
       params: { sectionName },
@@ -74,6 +80,10 @@ export default function App() {
 
   if (route.name === 'seguridad') {
     return <SeguridadScreen onBack={handleBackToHome} />;
+  }
+
+  if (route.name === 'proveedores') {
+    return <ProveedoresScreen onBack={handleBackToHome} />;
   }
 
   if (route.name === 'section-placeholder') {
