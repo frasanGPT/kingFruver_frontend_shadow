@@ -11,6 +11,9 @@ import {
 import AppShell from '../components/AppShell';
 import StateNoticeCard from '../components/StateNoticeCard';
 import { blockUsuario, getUsuarios, unblockUsuario } from '../services/usuarioService';
+import { getCarritos } from '../services/carritoService';
+import { getCajas } from '../services/cajaService';
+import { getVentas } from '../services/ventaService';
 import { loadSession } from '../services/sessionService';
 import { getRoleCode } from '../utils/accessControl';
 
@@ -49,6 +52,65 @@ function normalizeUsuarios(response) {
 
   return [];
 }
+function normalizeApiRows(response) {
+  if (Array.isArray(response?.data)) {
+    return response.data;
+  }
+
+  if (Array.isArray(response?.items)) {
+    return response.items;
+  }
+
+  if (Array.isArray(response?.rows)) {
+    return response.rows;
+  }
+
+  return [];
+}
+
+function getReferenceId(value) {
+  if (!value) {
+    return '';
+  }
+
+  if (typeof value === 'string') {
+    return value;
+  }
+
+  return value._id || value.id || '';
+}
+
+function getReferenceEmail(value) {
+  if (!value || typeof value !== 'object') {
+    return '';
+  }
+
+  return value.email || '';
+}
+
+function referenceMatchesUser(value, usuario) {
+  const refId = getReferenceId(value);
+  const refEmail = getReferenceEmail(value);
+  const usuarioId = getUserId(usuario);
+  const usuarioEmail = usuario?.email || '';
+
+  return (usuarioId && refId && String(refId) === String(usuarioId)) ||
+    (usuarioEmail && refEmail && String(refEmail) === String(usuarioEmail));
+}
+
+function getSedeId(usuario) {
+  return getReferenceId(usuario?.sedeId);
+}
+
+function getShortId(value) {
+  const raw = getReferenceId(value) || String(value || '');
+
+  if (raw.length <= 8) {
+    return raw || 'sin id';
+  }
+
+  return raw.slice(-8);
+}
 
 export default function UsuariosScreen({ onBack }) {
   const [token, setToken] = useState('');
@@ -59,6 +121,8 @@ export default function UsuariosScreen({ onBack }) {
   const [screenResult, setScreenResult] = useState('Cargando usuarios...');
   const [searchText, setSearchText] = useState('');
   const [pendingAction, setPendingAction] = useState(null);
+  const [pendingSummary, setPendingSummary] = useState(null);
+  const [pendingCheckLoading, setPendingCheckLoading] = useState(false);
 
   const isAdmin = getRoleCode(authUser) === 'admin';
   const authUserId = getUserId(authUser);
@@ -145,7 +209,53 @@ export default function UsuariosScreen({ onBack }) {
     };
   }, []);
 
-  function openAction(usuario, action) {
+  async function buildPendingSummary(usuario) {
+    const usuarioId = getUserId(usuario);
+    const sedeId = getSedeId(usuario);
+
+    const carritosPromise = getCarritos({
+      estado: 'activo',
+      usuarioId,
+      ...(sedeId ? { sedeId } : {}),
+    }, token);
+
+    const cajasPromise = getCajas({
+      token,
+      ...(sedeId ? { sedeId } : {}),
+      estado: 'abierta',
+      activo: true,
+    });
+
+    const ventasPromise = getVentas({
+      usuarioId,
+      ...(sedeId ? { sedeId } : {}),
+    }, token);
+
+    const [carritosResponse, cajasResponse, ventasResponse] = await Promise.all([
+      carritosPromise,
+      cajasPromise,
+      ventasPromise,
+    ]);
+
+    const carritosActivos = normalizeApiRows(carritosResponse);
+    const cajasAbiertas = normalizeApiRows(cajasResponse).filter((caja) => {
+      return referenceMatchesUser(caja.openedByUsuarioId, usuario);
+    });
+    const ventasRecientes = normalizeApiRows(ventasResponse).slice(0, 3);
+
+    return {
+      carritosActivos,
+      cajasAbiertas,
+      ventasRecientes,
+      carritosActivosCount: carritosActivos.length,
+      cajasAbiertasCount: cajasAbiertas.length,
+      ventasRecientesCount: ventasRecientes.length,
+      hasBlockingWarnings: carritosActivos.length > 0 || cajasAbiertas.length > 0,
+      error: null,
+    };
+  }
+
+  async function openAction(usuario, action) {
     if (!isAdmin) {
       setScreenResult('Solo el administrador puede bloquear o desbloquear usuarios.');
       return;
@@ -156,12 +266,44 @@ export default function UsuariosScreen({ onBack }) {
       return;
     }
 
+    setPendingSummary(null);
+
+    if (action === 'block') {
+      try {
+        setPendingCheckLoading(true);
+        setScreenResult(`Revisando pendientes de ${usuario.email}...`);
+
+        const summary = await buildPendingSummary(usuario);
+        setPendingSummary(summary);
+
+        if (summary.hasBlockingWarnings) {
+          setScreenResult(`Pendientes detectados para ${usuario.email}. Revisa el modal antes de confirmar.`);
+        } else {
+          setScreenResult(`Sin carritos activos ni cajas abiertas asociadas para ${usuario.email}.`);
+        }
+      } catch (error) {
+        setPendingSummary({
+          carritosActivos: [],
+          cajasAbiertas: [],
+          ventasRecientes: [],
+          carritosActivosCount: 0,
+          cajasAbiertasCount: 0,
+          ventasRecientesCount: 0,
+          hasBlockingWarnings: true,
+          error: error.message,
+        });
+        setScreenResult(`No se pudieron consultar pendientes: ${error.message}`);
+      } finally {
+        setPendingCheckLoading(false);
+      }
+    }
+
     setPendingAction({ usuario, action });
   }
-
   function closeActionModal() {
-    if (actionLoading) return;
+    if (actionLoading || pendingCheckLoading) return;
     setPendingAction(null);
+    setPendingSummary(null);
   }
 
   async function confirmAction() {
@@ -195,6 +337,7 @@ export default function UsuariosScreen({ onBack }) {
           : `Usuario desbloqueado: ${updatedEmail}`
       );
       setPendingAction(null);
+      setPendingSummary(null);
       await loadUsuariosFromApi();
     } catch (error) {
       setScreenResult(`Error: ${error.message}`);
@@ -304,7 +447,7 @@ export default function UsuariosScreen({ onBack }) {
                     <Pressable
                       style={[styles.actionButton, styles.blockButton, isSelf ? styles.disabledButton : null]}
                       onPress={() => openAction(usuario, 'block')}
-                      disabled={isSelf || actionLoading}
+                      disabled={isSelf || actionLoading || pendingCheckLoading}
                     >
                       <Text style={styles.blockButtonText}>Bloquear</Text>
                     </Pressable>
@@ -312,7 +455,7 @@ export default function UsuariosScreen({ onBack }) {
                     <Pressable
                       style={[styles.actionButton, styles.unblockButton]}
                       onPress={() => openAction(usuario, 'unblock')}
-                      disabled={actionLoading}
+                      disabled={actionLoading || pendingCheckLoading}
                     >
                       <Text style={styles.unblockButtonText}>Desbloquear</Text>
                     </Pressable>
@@ -340,9 +483,55 @@ export default function UsuariosScreen({ onBack }) {
             </Text>
 
             {pendingAction?.action === 'block' ? (
-              <Text style={styles.modalWarning}>
-                Antes de bloquear a un empleado, confirma que no tenga caja de turno pendiente, carritos activos o tareas operativas abiertas. El bloqueo corta el acceso, pero conserva el historial.
-              </Text>
+              <View>
+                <Text style={styles.modalWarning}>
+                  Antes de bloquear a un empleado, revisa sus pendientes operativos. El bloqueo corta el acceso, pero conserva el historial.
+                </Text>
+
+                {pendingSummary ? (
+                  <View style={styles.pendingBox}>
+                    <Text style={styles.pendingTitle}>Validación previa al bloqueo</Text>
+
+                    {pendingSummary.error ? (
+                      <Text style={styles.pendingWarningText}>
+                        No se pudieron consultar pendientes: {pendingSummary.error}
+                      </Text>
+                    ) : null}
+
+                    <Text style={styles.pendingLine}>
+                      Carritos activos preparados por el usuario: {pendingSummary.carritosActivosCount}
+                    </Text>
+                    <Text style={styles.pendingLine}>
+                      Cajas abiertas asociadas al usuario: {pendingSummary.cajasAbiertasCount}
+                    </Text>
+                    <Text style={styles.pendingLine}>
+                      Ventas recientes asociadas al usuario: {pendingSummary.ventasRecientesCount}
+                    </Text>
+
+                    {pendingSummary.carritosActivos.slice(0, 3).map((carrito) => (
+                      <Text key={getReferenceId(carrito) || carrito._id} style={styles.pendingDetailLine}>
+                        Carrito #{getShortId(carrito)} · estado {carrito.estado || 'sin estado'} · total {carrito.total || 0}
+                      </Text>
+                    ))}
+
+                    {pendingSummary.cajasAbiertas.slice(0, 3).map((caja) => (
+                      <Text key={getReferenceId(caja) || caja._id} style={styles.pendingDetailLine}>
+                        Caja {caja.codigo || caja.nombre || getShortId(caja)} · estado {caja.estado || 'sin estado'}
+                      </Text>
+                    ))}
+
+                    {pendingSummary.hasBlockingWarnings ? (
+                      <Text style={styles.pendingWarningText}>
+                        Hay pendientes que conviene revisar antes de confirmar el bloqueo.
+                      </Text>
+                    ) : (
+                      <Text style={styles.pendingOkText}>
+                        No se detectaron carritos activos ni cajas abiertas asociadas.
+                      </Text>
+                    )}
+                  </View>
+                ) : null}
+              </View>
             ) : (
               <Text style={styles.modalWarning}>
                 El usuario volverá a poder iniciar sesión con su contraseña actual.
@@ -353,7 +542,7 @@ export default function UsuariosScreen({ onBack }) {
               <Pressable
                 style={[styles.modalButton, styles.modalCancelButton]}
                 onPress={closeActionModal}
-                disabled={actionLoading}
+                disabled={actionLoading || pendingCheckLoading}
               >
                 <Text style={styles.modalCancelText}>Cancelar</Text>
               </Pressable>
@@ -361,7 +550,7 @@ export default function UsuariosScreen({ onBack }) {
               <Pressable
                 style={[styles.modalButton, styles.modalConfirmButton]}
                 onPress={confirmAction}
-                disabled={actionLoading}
+                disabled={actionLoading || pendingCheckLoading}
               >
                 <Text style={styles.modalConfirmText}>
                   {actionLoading ? 'Procesando...' : 'Confirmar'}
@@ -568,6 +757,45 @@ const styles = StyleSheet.create({
     padding: 10,
     lineHeight: 20,
     marginBottom: 14,
+  },
+  pendingBox: {
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 14,
+  },
+  pendingTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#111827',
+    marginBottom: 8,
+  },
+  pendingLine: {
+    fontSize: 13,
+    color: '#111827',
+    lineHeight: 20,
+  },
+  pendingDetailLine: {
+    fontSize: 12,
+    color: '#4b5563',
+    lineHeight: 18,
+    marginTop: 4,
+  },
+  pendingWarningText: {
+    fontSize: 13,
+    color: '#991b1b',
+    lineHeight: 19,
+    marginTop: 8,
+    fontWeight: '700',
+  },
+  pendingOkText: {
+    fontSize: 13,
+    color: '#166534',
+    lineHeight: 19,
+    marginTop: 8,
+    fontWeight: '700',
   },
   modalActions: {
     flexDirection: 'row',
