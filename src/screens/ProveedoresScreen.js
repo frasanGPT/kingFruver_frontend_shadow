@@ -188,6 +188,7 @@ export default function ProveedoresScreen({ onBack }) {
         </Text>
       </View>
 
+      {canCreate ? (
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Crear proveedor</Text>
         <Text style={styles.helperText}>
@@ -216,6 +217,14 @@ export default function ProveedoresScreen({ onBack }) {
           </Text>
         </Pressable>
       </View>
+      ) : (
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Registro de proveedor</Text>
+          <Text style={styles.helperText}>
+            Disponible solo para administrador. Como supervisor puedes revisar el directorio y el estado de proveedores.
+          </Text>
+        </View>
+      )}
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Listado</Text>
