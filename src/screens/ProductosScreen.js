@@ -428,6 +428,17 @@ export default function ProductosScreen({ onBack }) {
                   </Text>
                 </View>
 
+                {!isAdmin ? (
+
+                  <Text style={styles.helperText}>
+
+                    Precio de venta editable solo por administrador. Este módulo está en modo lectura para tu rol.
+
+                  </Text>
+
+                ) : null}
+
+
                 {isAdmin ? (
                   <View style={styles.priceAdminBox}>
                     <Text style={styles.productLabel}>Editar precio de venta</Text>
