@@ -272,6 +272,7 @@ export default function ComprasScreen({ onBack }) {
         </Text>
       </View>
 
+      {canCreate ? (
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Registrar compra</Text>
         <Text style={styles.helperText}>
@@ -395,6 +396,14 @@ export default function ComprasScreen({ onBack }) {
           </Text>
         </Pressable>
       </View>
+      ) : (
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Registro de compra</Text>
+          <Text style={styles.cardText}>
+            Disponible solo para administrador. Como supervisor puedes revisar el resumen y el historial de compras.
+          </Text>
+        </View>
+      )}
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Listado de compras</Text>
