@@ -40,6 +40,7 @@ export default function ProveedoresScreen({ onBack }) {
   const [documento, setDocumento] = useState('');
   const [telefono, setTelefono] = useState('');
   const [email, setEmail] = useState('');
+  const [searchText, setSearchText] = useState('');
 
   const roleCode = getRoleCode(session && session.usuario ? session.usuario : null);
   const token = session && session.token ? session.token : '';
@@ -48,6 +49,26 @@ export default function ProveedoresScreen({ onBack }) {
   const activeProviders = useMemo(() => {
     return proveedores.filter((item) => item.activo === true);
   }, [proveedores]);
+
+  const filteredProviders = useMemo(() => {
+    const normalizedSearch = searchText.trim().toLowerCase();
+
+    if (!normalizedSearch) {
+      return proveedores;
+    }
+
+    return proveedores.filter((item) => {
+      const haystack = [
+        item.nombre || '',
+        item.documento || '',
+        item.email || '',
+      ]
+        .join(' ')
+        .toLowerCase();
+
+      return haystack.includes(normalizedSearch);
+    });
+  }, [proveedores, searchText]);
 
   async function loadProveedoresFromApi(currentToken) {
     const effectiveToken = currentToken || token;
@@ -183,6 +204,7 @@ export default function ProveedoresScreen({ onBack }) {
         <Text style={styles.summaryText}>Rol: {roleCode || 'sin rol'}</Text>
         <Text style={styles.summaryText}>Total proveedores: {proveedores.length}</Text>
         <Text style={styles.summaryText}>Activos: {activeProviders.length}</Text>
+          <Text style={styles.summaryText}>Visibles: {filteredProviders.length}</Text>
         <Text style={styles.summaryText}>
           Crear proveedor: {canCreate ? 'disponible para admin' : 'solo lectura'}
         </Text>
@@ -229,6 +251,14 @@ export default function ProveedoresScreen({ onBack }) {
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Listado</Text>
 
+          <TextInput
+            style={styles.input}
+            value={searchText}
+            onChangeText={setSearchText}
+            placeholder="Buscar proveedor por nombre, documento o email"
+            editable={!creating}
+          />
+
         {loading ? (
           <View style={styles.loadingRow}>
             <ActivityIndicator />
@@ -237,11 +267,11 @@ export default function ProveedoresScreen({ onBack }) {
         ) : null}
 
         <ScrollView style={styles.list} nestedScrollEnabled>
-          {proveedores.length === 0 ? (
+          {filteredProviders.length === 0 ? (
             <Text style={styles.emptyText}>No hay proveedores cargados.</Text>
           ) : null}
 
-          {proveedores.map((item) => (
+          {filteredProviders.map((item) => (
             <View key={item.id || item.nombre} style={styles.providerCard}>
               <View style={styles.providerHeader}>
                 <Text style={styles.providerName}>{item.nombre}</Text>
