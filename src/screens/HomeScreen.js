@@ -136,23 +136,27 @@ export default function HomeScreen({ onOpenSection }) {
           disabled={moduleAccess.Productos !== true}
           onPress={() => handleOpenProtectedSection('Productos')}
         />
-          <QuickActionCard
-            title="Proveedores"
-            description="Directorio de proveedores para compras y abastecimiento."
-            badge={getModuleBadge('Proveedores')}
-            disabled={moduleAccess.Proveedores !== true}
-            onPress={() => handleOpenProtectedSection('Proveedores')}
-          />
-          <QuickActionCard
-            title="Compras"
-            description="Registro de compras asociadas a proveedor y sede."
-            badge={getModuleBadge('Compras')}
-            disabled={moduleAccess.Compras !== true}
-            onPress={() => handleOpenProtectedSection('Compras')}
-          />
-
-
-
+        <QuickActionCard
+          title="Proveedores"
+          description="Directorio de proveedores para compras y abastecimiento."
+          badge={getModuleBadge('Proveedores')}
+          disabled={moduleAccess.Proveedores !== true}
+          onPress={() => handleOpenProtectedSection('Proveedores')}
+        />
+        <QuickActionCard
+          title="Compras"
+          description="Registro de compras asociadas a proveedor y sede."
+          badge={getModuleBadge('Compras')}
+          disabled={moduleAccess.Compras !== true}
+          onPress={() => handleOpenProtectedSection('Compras')}
+        />
+        <QuickActionCard
+          title="Referencias costo"
+          description="Supervisor prepara y admin decide precio con trazabilidad."
+          badge={getModuleBadge('Referencias costo')}
+          disabled={moduleAccess['Referencias costo'] !== true}
+          onPress={() => handleOpenProtectedSection('Referencias costo')}
+        />
         <QuickActionCard
           title="Ventas"
           description="Flujo de venta y operacion principal."
@@ -160,7 +164,6 @@ export default function HomeScreen({ onOpenSection }) {
           disabled={moduleAccess.Ventas !== true}
           onPress={() => handleOpenProtectedSection('Ventas')}
         />
-
         <QuickActionCard
           title="Cajas"
           description="Caja actual, apertura, cierre y arqueo."
@@ -168,7 +171,6 @@ export default function HomeScreen({ onOpenSection }) {
           disabled={moduleAccess.Cajas !== true}
           onPress={() => handleOpenProtectedSection('Cajas')}
         />
-
         <QuickActionCard
           title="Reportes"
           description="Resumen operativo filtrable y validaciones rapidas."
@@ -176,7 +178,6 @@ export default function HomeScreen({ onOpenSection }) {
           disabled={moduleAccess.Reportes !== true}
           onPress={() => handleOpenProtectedSection('Reportes')}
         />
-
         <QuickActionCard
           title="Usuarios"
           description="Bloqueo y desbloqueo administrativo de usuarios."
@@ -184,13 +185,13 @@ export default function HomeScreen({ onOpenSection }) {
           disabled={moduleAccess.Usuarios !== true}
           onPress={() => handleOpenProtectedSection('Usuarios')}
         />
-          <QuickActionCard
-            title="Seguridad"
-            description="Cambio de contraseña del usuario actual."
-            badge={getModuleBadge('Seguridad')}
-            disabled={moduleAccess.Seguridad !== true}
-            onPress={() => handleOpenProtectedSection('Seguridad')}
-          />
+        <QuickActionCard
+          title="Seguridad"
+          description="Cambio de contraseña del usuario actual."
+          badge={getModuleBadge('Seguridad')}
+          disabled={moduleAccess.Seguridad !== true}
+          onPress={() => handleOpenProtectedSection('Seguridad')}
+        />
       </View>
 
       <Pressable style={styles.button} onPress={() => handleCheckHealth(activeEnvironment)}>

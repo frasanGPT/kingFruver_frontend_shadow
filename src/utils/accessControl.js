@@ -1,92 +1,80 @@
 export function extractSedeIdFromUser(usuario) {
-  if (usuario === null || usuario === undefined) {
-    return "";
-  }
-
-  if (typeof usuario.sedeId === "string") {
-    return usuario.sedeId;
-  }
-
-  if (usuario.sedeId && typeof usuario.sedeId === "object" && usuario.sedeId._id) {
-    return usuario.sedeId._id;
-  }
-
-  return "";
+if (usuario === null || usuario === undefined) {
+return "";
 }
-
+if (typeof usuario.sedeId === "string") {
+return usuario.sedeId;
+}
+if (usuario.sedeId && typeof usuario.sedeId === "object" && usuario.sedeId._id) {
+return usuario.sedeId._id;
+}
+return "";
+}
 export function getRoleCode(usuario) {
-  if (usuario === null || usuario === undefined) {
-    return "";
-  }
-
-  if (usuario.roleId && typeof usuario.roleId === "object" && usuario.roleId.codigo) {
-    return String(usuario.roleId.codigo);
-  }
-
-  return "";
+if (usuario === null || usuario === undefined) {
+return "";
 }
-
+if (usuario.roleId && typeof usuario.roleId === "object" && usuario.roleId.codigo) {
+return String(usuario.roleId.codigo);
+}
+return "";
+}
 export function getPermissions(usuario) {
-  if (usuario === null || usuario === undefined) {
-    return [];
-  }
-
-  if (
-    usuario.roleId &&
-    typeof usuario.roleId === "object" &&
-    Array.isArray(usuario.roleId.permisos)
-  ) {
-    return usuario.roleId.permisos;
-  }
-
-  return [];
+if (usuario === null || usuario === undefined) {
+return [];
 }
-
+if (
+usuario.roleId &&
+typeof usuario.roleId === "object" &&
+Array.isArray(usuario.roleId.permisos)
+) {
+return usuario.roleId.permisos;
+}
+return [];
+}
 export function hasPermission(usuario, permissionCode) {
-  const roleCode = getRoleCode(usuario);
-  const permisos = getPermissions(usuario);
-
-  if (roleCode === "admin") {
-    return true;
-  }
-
-  if (permisos.includes("*")) {
-    return true;
-  }
-
-  return permisos.includes(permissionCode);
+const roleCode = getRoleCode(usuario);
+const permisos = getPermissions(usuario);
+if (roleCode === "admin") {
+return true;
 }
-
+if (permisos.includes("*")) {
+return true;
+}
+return permisos.includes(permissionCode);
+}
 export function buildModuleAccess(usuario) {
-  const roleCode = getRoleCode(usuario);
-  const productos =
-    roleCode !== "vendedor" &&
-    roleCode !== "cajero" &&
-    hasPermission(usuario, "inventario:read");
-  const ventas =
-    roleCode !== "supervisor" &&
-    (hasPermission(usuario, "ventas:create") || hasPermission(usuario, "ventas:read"));
-  const cajas = hasPermission(usuario, "cajas:read");
-  const reportes =
-    roleCode !== "cajero" &&
-    hasPermission(usuario, "ventas:read") &&
-    hasPermission(usuario, "arqueos:read") &&
-    hasPermission(usuario, "cajas:read");
-  const usuarios = roleCode === "admin" || hasPermission(usuario, "usuarios:read");
-  const seguridad = Boolean(usuario);
-  const proveedores =
-    roleCode === "admin" || hasPermission(usuario, "proveedores:read");
-  const compras =
-    roleCode === "admin" || hasPermission(usuario, "compras:read");
-
-  return {
-    Productos: productos,
-    Ventas: ventas,
-    Cajas: cajas,
-    Reportes: reportes,
-    Usuarios: usuarios,
-    Seguridad: seguridad,
-    Proveedores: proveedores,
-    Compras: compras,
-  };
+const roleCode = getRoleCode(usuario);
+const productos =
+roleCode !== "vendedor" &&
+roleCode !== "cajero" &&
+hasPermission(usuario, "inventario:read");
+const ventas =
+roleCode !== "supervisor" &&
+(hasPermission(usuario, "ventas:create") || hasPermission(usuario, "ventas:read"));
+const cajas = hasPermission(usuario, "cajas:read");
+const reportes =
+roleCode !== "cajero" &&
+hasPermission(usuario, "ventas:read") &&
+hasPermission(usuario, "arqueos:read") &&
+hasPermission(usuario, "cajas:read");
+const usuarios = roleCode === "admin" || hasPermission(usuario, "usuarios:read");
+const seguridad = Boolean(usuario);
+const proveedores =
+roleCode === "admin" || hasPermission(usuario, "proveedores:read");
+const compras =
+roleCode === "admin" || hasPermission(usuario, "compras:read");
+const referenciasCosto =
+roleCode === "admin" || hasPermission(usuario, "referencias-costo:read");
+return {
+Productos: productos,
+Ventas: ventas,
+Cajas: cajas,
+Reportes: reportes,
+Usuarios: usuarios,
+Seguridad: seguridad,
+Proveedores: proveedores,
+Compras: compras,
+"Referencias costo": referenciasCosto,
+};
 }
