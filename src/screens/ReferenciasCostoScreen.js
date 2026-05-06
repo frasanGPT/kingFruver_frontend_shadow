@@ -63,7 +63,10 @@ function normalizeInventario(item) {
 }
 
 function formatCurrency(value) {
-  return `$${Number(value || 0).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `$${Number(value || 0).toLocaleString('es-CO', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 }
 
 function parseDecimalInput(value) {
@@ -541,9 +544,7 @@ export default function ReferenciasCostoScreen({ onBack }) {
       ) : (
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Crear referencia de costo</Text>
-          <Text style={styles.cardText}>
-            Disponible para supervisor y administrador.
-          </Text>
+          <Text style={styles.cardText}>Disponible para supervisor y administrador.</Text>
         </View>
       )}
 
