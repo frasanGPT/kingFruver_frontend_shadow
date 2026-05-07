@@ -580,7 +580,47 @@ export default function ReferenciasCostoScreen({ onBack }) {
               <Text style={styles.cardRowTitle}>
                 {item.productoNombre} ({item.unidadBase || 'sin unidad'})
               </Text>
-              <Text style={styles.cardRowText}>Estado: {item.estado}</Text>
+              
+              <Text
+  style={[
+    styles.cardRowText,
+    {
+      alignSelf: 'flex-start',
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 999,
+      marginBottom: 8,
+      overflow: 'hidden',
+      backgroundColor:
+        item.estado === 'aplicada'
+          ? '#dcfce7'
+          : item.estado === 'descartada'
+            ? '#fee2e2'
+            : item.estado === 'revisada'
+              ? '#dbeafe'
+              : '#fef3c7',
+      color:
+        item.estado === 'aplicada'
+          ? '#166534'
+          : item.estado === 'descartada'
+            ? '#991b1b'
+            : item.estado === 'revisada'
+              ? '#1d4ed8'
+              : '#92400e',
+      fontWeight: '800',
+    },
+  ]}
+>
+  {item.estado === 'aplicada'
+    ? 'Aplicada'
+    : item.estado === 'descartada'
+      ? 'Descartada'
+      : item.estado === 'revisada'
+        ? 'Revisada'
+        : 'Pendiente'}
+</Text>
+
+
               <Text style={styles.cardRowText}>
                 Costo anterior: {formatCurrency(item.costoPromedioAnterior)}
               </Text>
