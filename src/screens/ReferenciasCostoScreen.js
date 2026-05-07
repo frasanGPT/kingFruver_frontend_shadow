@@ -83,6 +83,25 @@ function parseDecimalInput(value) {
   return Number(normalized);
 }
 
+function getReferenciaProductoFilterValue(item) {
+  if (item && item.inventarioId) {
+    return item.inventarioId;
+  }
+
+  const nombre = item && item.productoNombre ? item.productoNombre : 'Sin producto';
+  const unidad = item && item.unidadBase ? item.unidadBase : 'sin unidad';
+
+  return `${nombre}::${unidad}`;
+}
+
+const ESTADO_FILTROS = [
+  { value: 'todos', label: 'Todos' },
+  { value: 'pendiente', label: 'Pendientes' },
+  { value: 'revisada', label: 'Revisadas' },
+  { value: 'descartada', label: 'Descartadas' },
+  { value: 'aplicada', label: 'Aplicadas' },
+];
+
 export default function ReferenciasCostoScreen({ onBack }) {
   const [session, setSession] = useState(null);
   const [referencias, setReferencias] = useState([]);
@@ -102,6 +121,8 @@ export default function ReferenciasCostoScreen({ onBack }) {
   const [adminActionLoadingId, setAdminActionLoadingId] = useState('');
   const [adminObservationDrafts, setAdminObservationDrafts] = useState({});
   const [adminPriceDrafts, setAdminPriceDrafts] = useState({});
+  const [estadoFiltro, setEstadoFiltro] = useState('todos');
+  const [productoFiltro, setProductoFiltro] = useState('todos');
 
   const roleCode = getRoleCode(session && session.usuario ? session.usuario : null);
   const token = session && session.token ? session.token : '';
@@ -113,6 +134,59 @@ export default function ReferenciasCostoScreen({ onBack }) {
   const pendingCount = useMemo(() => {
     return referencias.filter((item) => item.estado === 'pendiente').length;
   }, [referencias]);
+
+  const productoFiltroOpciones = useMemo(() => {
+    const opcionesPorProducto = new Map();
+
+    referencias.forEach((item) => {
+      const value = getReferenciaProductoFilterValue(item);
+
+      if (!opcionesPorProducto.has(value)) {
+        opcionesPorProducto.set(value, {
+          value,
+          label: `${item.productoNombre} (${item.unidadBase || 'sin unidad'})`,
+        });
+      }
+    });
+
+    return [
+      { value: 'todos', label: 'Todos los productos' },
+      ...Array.from(opcionesPorProducto.values()),
+    ];
+  }, [referencias]);
+
+  const referenciasFiltradas = useMemo(() => {
+    return referencias.filter((item) => {
+      const matchesEstado = estadoFiltro === 'todos' || item.estado === estadoFiltro;
+      const matchesProducto =
+        productoFiltro === 'todos' || getReferenciaProductoFilterValue(item) === productoFiltro;
+
+      return matchesEstado && matchesProducto;
+    });
+  }, [referencias, estadoFiltro, productoFiltro]);
+
+  const referenciasOrdenadasParaVista = useMemo(() => {
+    if (estadoFiltro !== 'todos') {
+      return referenciasFiltradas;
+    }
+
+    const pendientes = referenciasFiltradas.filter((item) => item.estado === 'pendiente');
+    const historicas = referenciasFiltradas.filter((item) => item.estado !== 'pendiente');
+
+    return [...pendientes, ...historicas];
+  }, [estadoFiltro, referenciasFiltradas]);
+
+  useEffect(() => {
+    if (productoFiltro === 'todos') {
+      return;
+    }
+
+    const exists = productoFiltroOpciones.some((option) => option.value === productoFiltro);
+
+    if (!exists) {
+      setProductoFiltro('todos');
+    }
+  }, [productoFiltro, productoFiltroOpciones]);
 
   const selectedInventario = useMemo(() => {
     return inventarioItems.find((item) => item.id === inventarioId) || null;
@@ -558,25 +632,116 @@ export default function ReferenciasCostoScreen({ onBack }) {
           </View>
         ) : null}
 
+        <View style={styles.filterBox}>
+          <Text style={styles.filterTitle}>Filtrar por estado</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.filterScroll}
+            contentContainerStyle={styles.filterRow}
+          >
+            {ESTADO_FILTROS.map((option) => (
+              <Pressable
+                key={option.value}
+                style={[
+                  styles.filterChip,
+                  estadoFiltro === option.value ? styles.filterChipActive : null,
+                ]}
+                onPress={() => setEstadoFiltro(option.value)}
+              >
+                <Text
+                  style={[
+                    styles.filterChipText,
+                    estadoFiltro === option.value ? styles.filterChipTextActive : null,
+                  ]}
+                >
+                  {option.label}
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
+
+        <View style={styles.filterBox}>
+          <Text style={styles.filterTitle}>Filtrar por producto</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.filterScroll}
+            contentContainerStyle={styles.filterRow}
+          >
+            {productoFiltroOpciones.map((option) => (
+              <Pressable
+                key={option.value}
+                style={[
+                  styles.filterChip,
+                  productoFiltro === option.value ? styles.filterChipActive : null,
+                ]}
+                onPress={() => setProductoFiltro(option.value)}
+              >
+                <Text
+                  style={[
+                    styles.filterChipText,
+                    productoFiltro === option.value ? styles.filterChipTextActive : null,
+                  ]}
+                >
+                  {option.label}
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
+
         <ScrollView style={styles.list} nestedScrollEnabled>
           {referencias.length === 0 ? (
             <Text style={styles.emptyText}>No hay referencias de costo cargadas.</Text>
           ) : null}
 
-          {referencias.map((item, index) => (
-            <View
-              key={item.id || item.productoNombre}
-              style={[
-                styles.cardRow,
-                index === 0
-                  ? {
-                      borderColor: '#bbf7d0',
-                      borderWidth: 2,
-                      backgroundColor: '#f0fdf4',
-                    }
-                  : null,
-              ]}
-            >
+          {referencias.length > 0 && referenciasFiltradas.length === 0 ? (
+            <Text style={styles.emptyText}>No hay referencias para este filtro.</Text>
+          ) : null}
+
+          {referenciasOrdenadasParaVista.map((item, index) => {
+            const previousItem = referenciasOrdenadasParaVista[index - 1] || null;
+            const shouldShowPendientesHeader =
+              estadoFiltro === 'todos' &&
+              item.estado === 'pendiente' &&
+              (!previousItem || previousItem.estado !== 'pendiente');
+            const shouldShowHistoricasHeader =
+              estadoFiltro === 'todos' &&
+              item.estado !== 'pendiente' &&
+              (!previousItem || previousItem.estado === 'pendiente');
+
+            return (
+              <React.Fragment key={item.id || item.productoNombre}>
+                {shouldShowPendientesHeader ? (
+                  <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionHeaderTitle}>Pendientes</Text>
+                    <Text style={styles.sectionHeaderText}>Necesitan decisión admin.</Text>
+                  </View>
+                ) : null}
+
+                {shouldShowHistoricasHeader ? (
+                  <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionHeaderTitle}>Históricas</Text>
+                    <Text style={styles.sectionHeaderText}>
+                      Revisadas, descartadas o aplicadas.
+                    </Text>
+                  </View>
+                ) : null}
+
+                <View
+                  style={[
+                    styles.cardRow,
+                    item.id && referencias[0] && item.id === referencias[0].id
+                      ? {
+                          borderColor: '#bbf7d0',
+                          borderWidth: 2,
+                          backgroundColor: '#f0fdf4',
+                        }
+                      : null,
+                  ]}
+                >
               <Text style={styles.cardRowTitle}>
                 {item.productoNombre} ({item.unidadBase || 'sin unidad'})
               </Text>
@@ -715,8 +880,10 @@ export default function ReferenciasCostoScreen({ onBack }) {
                   </Pressable>
                 </View>
               ) : null}
-            </View>
-          ))}
+                </View>
+              </React.Fragment>
+            );
+          })}
         </ScrollView>
       </View>
 
@@ -846,12 +1013,67 @@ const styles = StyleSheet.create({
   loadingText: {
     color: '#4b5563',
   },
+  filterBox: {
+    marginBottom: 12,
+  },
+  filterTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#111827',
+    marginBottom: 8,
+  },
+  filterScroll: {
+    width: '100%',
+  },
+  filterRow: {
+    paddingRight: 8,
+  },
+  filterChip: {
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: '#ffffff',
+    marginRight: 8,
+  },
+  filterChipActive: {
+    borderColor: '#111827',
+    backgroundColor: '#111827',
+  },
+  filterChipText: {
+    color: '#374151',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  filterChipTextActive: {
+    color: '#ffffff',
+  },
   list: {
     maxHeight: 460,
   },
   emptyText: {
     color: '#6b7280',
     fontSize: 14,
+  },
+  sectionHeader: {
+    backgroundColor: '#f3f4f6',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 10,
+  },
+  sectionHeaderTitle: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#111827',
+    marginBottom: 2,
+  },
+  sectionHeaderText: {
+    fontSize: 12,
+    color: '#6b7280',
   },
   cardRow: {
     borderWidth: 1,
