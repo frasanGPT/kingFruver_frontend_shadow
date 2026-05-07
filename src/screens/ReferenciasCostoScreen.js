@@ -83,6 +83,14 @@ function parseDecimalInput(value) {
   return Number(normalized);
 }
 
+const ESTADO_FILTROS = [
+  { value: 'todos', label: 'Todos' },
+  { value: 'pendiente', label: 'Pendientes' },
+  { value: 'revisada', label: 'Revisadas' },
+  { value: 'descartada', label: 'Descartadas' },
+  { value: 'aplicada', label: 'Aplicadas' },
+];
+
 export default function ReferenciasCostoScreen({ onBack }) {
   const [session, setSession] = useState(null);
   const [referencias, setReferencias] = useState([]);
@@ -102,6 +110,7 @@ export default function ReferenciasCostoScreen({ onBack }) {
   const [adminActionLoadingId, setAdminActionLoadingId] = useState('');
   const [adminObservationDrafts, setAdminObservationDrafts] = useState({});
   const [adminPriceDrafts, setAdminPriceDrafts] = useState({});
+  const [estadoFiltro, setEstadoFiltro] = useState('todos');
 
   const roleCode = getRoleCode(session && session.usuario ? session.usuario : null);
   const token = session && session.token ? session.token : '';
@@ -113,6 +122,14 @@ export default function ReferenciasCostoScreen({ onBack }) {
   const pendingCount = useMemo(() => {
     return referencias.filter((item) => item.estado === 'pendiente').length;
   }, [referencias]);
+
+  const referenciasFiltradas = useMemo(() => {
+    if (estadoFiltro === 'todos') {
+      return referencias;
+    }
+
+    return referencias.filter((item) => item.estado === estadoFiltro);
+  }, [referencias, estadoFiltro]);
 
   const selectedInventario = useMemo(() => {
     return inventarioItems.find((item) => item.id === inventarioId) || null;
@@ -558,17 +575,51 @@ export default function ReferenciasCostoScreen({ onBack }) {
           </View>
         ) : null}
 
+        <View style={styles.filterBox}>
+          <Text style={styles.filterTitle}>Filtrar por estado</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.filterScroll}
+            contentContainerStyle={styles.filterRow}
+          >
+            {ESTADO_FILTROS.map((option) => (
+              <Pressable
+                key={option.value}
+                style={[
+                  styles.filterChip,
+                  estadoFiltro === option.value ? styles.filterChipActive : null,
+                ]}
+                onPress={() => setEstadoFiltro(option.value)}
+              >
+                <Text
+                  style={[
+                    styles.filterChipText,
+                    estadoFiltro === option.value ? styles.filterChipTextActive : null,
+                  ]}
+                >
+                  {option.label}
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
+
         <ScrollView style={styles.list} nestedScrollEnabled>
           {referencias.length === 0 ? (
             <Text style={styles.emptyText}>No hay referencias de costo cargadas.</Text>
           ) : null}
 
-          {referencias.map((item, index) => (
+          {referencias.length > 0 && referenciasFiltradas.length === 0 ? (
+            <Text style={styles.emptyText}>No hay referencias para este filtro.</Text>
+          ) : null}
+
+          {referenciasFiltradas.map((item, index) => (
             <View
               key={item.id || item.productoNombre}
               style={[
                 styles.cardRow,
-                index === 0
+                item.id && referencias[0] && item.id === referencias[0].id
                   ? {
                       borderColor: '#bbf7d0',
                       borderWidth: 2,
@@ -845,6 +896,42 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     color: '#4b5563',
+  },
+  filterBox: {
+    marginBottom: 12,
+  },
+  filterTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#111827',
+    marginBottom: 8,
+  },
+  filterScroll: {
+    width: '100%',
+  },
+  filterRow: {
+    paddingRight: 8,
+  },
+  filterChip: {
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: '#ffffff',
+    marginRight: 8,
+  },
+  filterChipActive: {
+    borderColor: '#111827',
+    backgroundColor: '#111827',
+  },
+  filterChipText: {
+    color: '#374151',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  filterChipTextActive: {
+    color: '#ffffff',
   },
   list: {
     maxHeight: 460,
