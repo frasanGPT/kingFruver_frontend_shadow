@@ -131,6 +131,17 @@ export default function ReferenciasCostoScreen({ onBack }) {
     return referencias.filter((item) => item.estado === estadoFiltro);
   }, [referencias, estadoFiltro]);
 
+  const referenciasOrdenadasParaVista = useMemo(() => {
+    if (estadoFiltro !== 'todos') {
+      return referenciasFiltradas;
+    }
+
+    const pendientes = referenciasFiltradas.filter((item) => item.estado === 'pendiente');
+    const historicas = referenciasFiltradas.filter((item) => item.estado !== 'pendiente');
+
+    return [...pendientes, ...historicas];
+  }, [estadoFiltro, referenciasFiltradas]);
+
   const selectedInventario = useMemo(() => {
     return inventarioItems.find((item) => item.id === inventarioId) || null;
   }, [inventarioItems, inventarioId]);
@@ -614,20 +625,47 @@ export default function ReferenciasCostoScreen({ onBack }) {
             <Text style={styles.emptyText}>No hay referencias para este filtro.</Text>
           ) : null}
 
-          {referenciasFiltradas.map((item, index) => (
-            <View
-              key={item.id || item.productoNombre}
-              style={[
-                styles.cardRow,
-                item.id && referencias[0] && item.id === referencias[0].id
-                  ? {
-                      borderColor: '#bbf7d0',
-                      borderWidth: 2,
-                      backgroundColor: '#f0fdf4',
-                    }
-                  : null,
-              ]}
-            >
+          {referenciasOrdenadasParaVista.map((item, index) => {
+            const previousItem = referenciasOrdenadasParaVista[index - 1] || null;
+            const shouldShowPendientesHeader =
+              estadoFiltro === 'todos' &&
+              item.estado === 'pendiente' &&
+              (!previousItem || previousItem.estado !== 'pendiente');
+            const shouldShowHistoricasHeader =
+              estadoFiltro === 'todos' &&
+              item.estado !== 'pendiente' &&
+              (!previousItem || previousItem.estado === 'pendiente');
+
+            return (
+              <React.Fragment key={item.id || item.productoNombre}>
+                {shouldShowPendientesHeader ? (
+                  <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionHeaderTitle}>Pendientes</Text>
+                    <Text style={styles.sectionHeaderText}>Necesitan decisión admin.</Text>
+                  </View>
+                ) : null}
+
+                {shouldShowHistoricasHeader ? (
+                  <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionHeaderTitle}>Históricas</Text>
+                    <Text style={styles.sectionHeaderText}>
+                      Revisadas, descartadas o aplicadas.
+                    </Text>
+                  </View>
+                ) : null}
+
+                <View
+                  style={[
+                    styles.cardRow,
+                    item.id && referencias[0] && item.id === referencias[0].id
+                      ? {
+                          borderColor: '#bbf7d0',
+                          borderWidth: 2,
+                          backgroundColor: '#f0fdf4',
+                        }
+                      : null,
+                  ]}
+                >
               <Text style={styles.cardRowTitle}>
                 {item.productoNombre} ({item.unidadBase || 'sin unidad'})
               </Text>
@@ -766,8 +804,10 @@ export default function ReferenciasCostoScreen({ onBack }) {
                   </Pressable>
                 </View>
               ) : null}
-            </View>
-          ))}
+                </View>
+              </React.Fragment>
+            );
+          })}
         </ScrollView>
       </View>
 
@@ -939,6 +979,25 @@ const styles = StyleSheet.create({
   emptyText: {
     color: '#6b7280',
     fontSize: 14,
+  },
+  sectionHeader: {
+    backgroundColor: '#f3f4f6',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 10,
+  },
+  sectionHeaderTitle: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#111827',
+    marginBottom: 2,
+  },
+  sectionHeaderText: {
+    fontSize: 12,
+    color: '#6b7280',
   },
   cardRow: {
     borderWidth: 1,
