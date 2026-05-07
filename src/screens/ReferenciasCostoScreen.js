@@ -83,6 +83,17 @@ function parseDecimalInput(value) {
   return Number(normalized);
 }
 
+function getReferenciaProductoFilterValue(item) {
+  if (item && item.inventarioId) {
+    return item.inventarioId;
+  }
+
+  const nombre = item && item.productoNombre ? item.productoNombre : 'Sin producto';
+  const unidad = item && item.unidadBase ? item.unidadBase : 'sin unidad';
+
+  return `${nombre}::${unidad}`;
+}
+
 const ESTADO_FILTROS = [
   { value: 'todos', label: 'Todos' },
   { value: 'pendiente', label: 'Pendientes' },
@@ -111,6 +122,7 @@ export default function ReferenciasCostoScreen({ onBack }) {
   const [adminObservationDrafts, setAdminObservationDrafts] = useState({});
   const [adminPriceDrafts, setAdminPriceDrafts] = useState({});
   const [estadoFiltro, setEstadoFiltro] = useState('todos');
+  const [productoFiltro, setProductoFiltro] = useState('todos');
 
   const roleCode = getRoleCode(session && session.usuario ? session.usuario : null);
   const token = session && session.token ? session.token : '';
@@ -123,13 +135,35 @@ export default function ReferenciasCostoScreen({ onBack }) {
     return referencias.filter((item) => item.estado === 'pendiente').length;
   }, [referencias]);
 
-  const referenciasFiltradas = useMemo(() => {
-    if (estadoFiltro === 'todos') {
-      return referencias;
-    }
+  const productoFiltroOpciones = useMemo(() => {
+    const opcionesPorProducto = new Map();
 
-    return referencias.filter((item) => item.estado === estadoFiltro);
-  }, [referencias, estadoFiltro]);
+    referencias.forEach((item) => {
+      const value = getReferenciaProductoFilterValue(item);
+
+      if (!opcionesPorProducto.has(value)) {
+        opcionesPorProducto.set(value, {
+          value,
+          label: `${item.productoNombre} (${item.unidadBase || 'sin unidad'})`,
+        });
+      }
+    });
+
+    return [
+      { value: 'todos', label: 'Todos los productos' },
+      ...Array.from(opcionesPorProducto.values()),
+    ];
+  }, [referencias]);
+
+  const referenciasFiltradas = useMemo(() => {
+    return referencias.filter((item) => {
+      const matchesEstado = estadoFiltro === 'todos' || item.estado === estadoFiltro;
+      const matchesProducto =
+        productoFiltro === 'todos' || getReferenciaProductoFilterValue(item) === productoFiltro;
+
+      return matchesEstado && matchesProducto;
+    });
+  }, [referencias, estadoFiltro, productoFiltro]);
 
   const referenciasOrdenadasParaVista = useMemo(() => {
     if (estadoFiltro !== 'todos') {
@@ -141,6 +175,18 @@ export default function ReferenciasCostoScreen({ onBack }) {
 
     return [...pendientes, ...historicas];
   }, [estadoFiltro, referenciasFiltradas]);
+
+  useEffect(() => {
+    if (productoFiltro === 'todos') {
+      return;
+    }
+
+    const exists = productoFiltroOpciones.some((option) => option.value === productoFiltro);
+
+    if (!exists) {
+      setProductoFiltro('todos');
+    }
+  }, [productoFiltro, productoFiltroOpciones]);
 
   const selectedInventario = useMemo(() => {
     return inventarioItems.find((item) => item.id === inventarioId) || null;
@@ -607,6 +653,36 @@ export default function ReferenciasCostoScreen({ onBack }) {
                   style={[
                     styles.filterChipText,
                     estadoFiltro === option.value ? styles.filterChipTextActive : null,
+                  ]}
+                >
+                  {option.label}
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
+
+        <View style={styles.filterBox}>
+          <Text style={styles.filterTitle}>Filtrar por producto</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.filterScroll}
+            contentContainerStyle={styles.filterRow}
+          >
+            {productoFiltroOpciones.map((option) => (
+              <Pressable
+                key={option.value}
+                style={[
+                  styles.filterChip,
+                  productoFiltro === option.value ? styles.filterChipActive : null,
+                ]}
+                onPress={() => setProductoFiltro(option.value)}
+              >
+                <Text
+                  style={[
+                    styles.filterChipText,
+                    productoFiltro === option.value ? styles.filterChipTextActive : null,
                   ]}
                 >
                   {option.label}
