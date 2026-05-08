@@ -129,9 +129,12 @@ export default function ReferenciasCostoScreen({ onBack }) {
   const token = session && session.token ? session.token : '';
   const sedeId = session && session.sedeId ? session.sedeId : '';
   const activeEnvironment = getActiveEnvironment();
+  const sessionSede = session && session.usuario ? session.usuario.sedeId : null;
   const sedeLabel =
-    session && session.usuario && session.usuario.sedeId && typeof session.usuario.sedeId === 'object'
-      ? session.usuario.sedeId.nombre || session.usuario.sedeId.codigo || activeEnvironment.defaultSedeLabel
+    sessionSede && typeof sessionSede === 'object'
+      ? sessionSede.nombre && sessionSede.codigo
+        ? sessionSede.nombre + ' (' + sessionSede.codigo + ')'
+        : sessionSede.nombre || sessionSede.codigo || activeEnvironment.defaultSedeLabel
       : sedeId && sedeId === activeEnvironment.defaultSedeId
         ? activeEnvironment.defaultSedeLabel
         : sedeId || 'sin sede';
