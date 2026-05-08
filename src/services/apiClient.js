@@ -1,9 +1,9 @@
-import { API_BASE_URL } from '../config/api';
+import { getApiBaseUrl } from '../config/api';
 
 const DEFAULT_TIMEOUT_MS = 10000;
 
 function buildUrl(path) {
-  return `${API_BASE_URL}${path}`;
+  return `${getApiBaseUrl()}${path}`;
 }
 
 function createTimeoutSignal(timeoutMs) {
@@ -92,7 +92,6 @@ export async function apiPost(path, body, options = {}) {
     timeout.clear();
   }
 }
-
 
 export async function apiPatch(path, body, options = {}) {
   const timeoutMs = options.timeoutMs || DEFAULT_TIMEOUT_MS;

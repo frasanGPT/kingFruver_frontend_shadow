@@ -5,6 +5,19 @@ import StatusBadge from '../components/StatusBadge';
 import { closeCajaWithArqueo, getCajas, openCaja } from '../services/cajaService';
 import { loadSession, saveSession } from '../services/sessionService';
 import { getRoleCode } from '../utils/accessControl';
+import { getActiveEnvironment } from '../config/environments';
+
+function getCajasEnvironment() {
+  return getActiveEnvironment();
+}
+
+function getCajasEnvironmentLabelLower() {
+  return getCajasEnvironment().label.toLowerCase();
+}
+
+function getCajasBackendLabel() {
+  return getCajasEnvironment().copy.backendLabel;
+}
 
 function formatCurrency(value) {
   return `$${Number(value || 0).toLocaleString('es-CO')}`;
@@ -24,6 +37,10 @@ function formatDateTime(value) {
   return date.toLocaleString('es-CO');
 }
 
+function getUserDisplayName(user) {
+  return user?.email || user?.nombre || 'sin responsable';
+}
+
 function buildOpenActionText(caja, notasAccion) {
   return [
     'Caja abierta con exito',
@@ -32,6 +49,7 @@ function buildOpenActionText(caja, notasAccion) {
     `Estado final: ${caja?.estado || 'sin valor'}`,
     `Saldo apertura: ${formatCurrency(caja?.saldoApertura || 0)}`,
     `Fecha apertura: ${formatDateTime(caja?.fechaApertura)}`,
+    `Abierta por: ${getUserDisplayName(caja?.openedByUsuarioId)}`,
     `Efectivo operativo: ${formatCurrency(caja?.totalEfectivo || 0)}`,
     `Transferencia: ${formatCurrency(caja?.totalTransferencia || 0)}`,
     `Mixto: ${formatCurrency(caja?.totalMixto || 0)}`,
@@ -47,6 +65,8 @@ function buildCloseActionText(caja, arqueo, notasAccion) {
     `Código: ${caja?.codigo || 'sin valor'}`,
     `Estado final: ${caja?.estado || 'sin valor'}`,
     `Fecha cierre: ${formatDateTime(caja?.fechaCierre)}`,
+    `Cerrada por: ${getUserDisplayName(caja?.closedByUsuarioId)}`,
+    `Responsable del arqueo: ${getUserDisplayName(arqueo?.usuarioId)}`,
     `Saldo apertura: ${formatCurrency(arqueo?.saldoApertura || 0)}`,
     `Esperado efectivo: ${formatCurrency(arqueo?.esperadoEfectivo || 0)}`,
     `Contado efectivo: ${formatCurrency(arqueo?.contadoEfectivo || 0)}`,
@@ -236,7 +256,7 @@ export default function CajasScreen({ onBack }) {
 
     try {
       setActionLoading(true);
-      setScreenResult('Abriendo caja real en shadow...');
+      setScreenResult(`Abriendo caja real en ${getCajasEnvironmentLabelLower()}...`);
 
       const response = await openCaja({
         id: selectedCaja._id,
@@ -277,7 +297,7 @@ export default function CajasScreen({ onBack }) {
 
     try {
       setActionLoading(true);
-      setScreenResult('Cerrando caja real con arqueo en shadow...');
+      setScreenResult(`Cerrando caja real con arqueo en ${getCajasEnvironmentLabelLower()}...`);
 
       const response = await closeCajaWithArqueo({
         id: selectedCaja._id,
@@ -331,8 +351,8 @@ export default function CajasScreen({ onBack }) {
       subtitle={isCajero ? 'Operación de mi caja de turno' : 'Base operativa'}
       description={
         isCajero
-          ? 'Usa esta pantalla para operar tu caja asignada de turno en backend shadow.'
-          : 'Lectura y acciones reales de cajas desde backend shadow.'
+          ? `Usa esta pantalla para operar tu caja asignada de turno en ${getCajasBackendLabel()}.`
+          : `Lectura y acciones reales de cajas desde ${getCajasBackendLabel()}.`
       }
       layout="top"
     >
@@ -420,6 +440,12 @@ export default function CajasScreen({ onBack }) {
               {formatCurrency(
                 Number(selectedCaja.saldoApertura || 0) + Number(selectedCaja.totalEfectivo || 0)
               )}
+            </Text>
+            <Text style={styles.cardText}>
+              Abierta por: {getUserDisplayName(selectedCaja.openedByUsuarioId)}
+            </Text>
+            <Text style={styles.cardText}>
+              Cerrada por: {getUserDisplayName(selectedCaja.closedByUsuarioId)}
             </Text>
             <Text style={styles.cardText}>
               Transferencia: {formatCurrency(selectedCaja.totalTransferencia || 0)}

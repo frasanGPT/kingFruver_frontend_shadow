@@ -7,6 +7,15 @@ import StateNoticeCard from '../components/StateNoticeCard';
 import { getInventarioDisponible, updatePrecioDeVenta } from '../services/inventarioService';
 import { loadSession } from '../services/sessionService';
 import { getRoleCode } from '../utils/accessControl';
+import { getActiveEnvironment } from '../config/environments';
+
+function getProductosEnvironment() {
+  return getActiveEnvironment();
+}
+
+function getProductosEnvironmentLabelLower() {
+  return getProductosEnvironment().label.toLowerCase();
+}
 
 function formatCurrency(value) {
   return `$${Number(value || 0).toLocaleString('es-CO')}`;
@@ -312,7 +321,7 @@ export default function ProductosScreen({ onBack }) {
     <AppShell
       title="Productos"
       subtitle="Base operativa"
-      description="Consulta real de productos disponibles desde inventario shadow."
+      description={`Consulta real de productos disponibles desde inventario ${getProductosEnvironmentLabelLower()}.`}
       layout="top"
     >
       <View style={styles.card}>
@@ -418,6 +427,17 @@ export default function ProductosScreen({ onBack }) {
                       : formatCurrency(item.precioDeVenta)}
                   </Text>
                 </View>
+
+                {!isAdmin ? (
+
+                  <Text style={styles.helperText}>
+
+                    Precio de venta editable solo por administrador. Este módulo está en modo lectura para tu rol.
+
+                  </Text>
+
+                ) : null}
+
 
                 {isAdmin ? (
                   <View style={styles.priceAdminBox}>

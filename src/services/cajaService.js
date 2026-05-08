@@ -1,10 +1,10 @@
-import { API_BASE_URL } from '../config/api';
+import { getApiBaseUrl } from '../config/api';
 import { apiGet } from './apiClient';
 
 const DEFAULT_TIMEOUT_MS = 20000;
 
 function buildUrl(path) {
-  return `${API_BASE_URL}${path}`;
+  return `${getApiBaseUrl()}${path}`;
 }
 
 function createTimeoutSignal(timeoutMs) {
