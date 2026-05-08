@@ -52,6 +52,8 @@ export default function HomeScreen({ onOpenSection }) {
     return buildModuleAccess(session ? session.usuario : null);
   }, [session]);
 
+  const showReferenciasCosto = activeEnvironment.key === 'shadow';
+
   function handleSessionChange(nextSession) {
     setSession(nextSession);
   }
@@ -150,13 +152,15 @@ export default function HomeScreen({ onOpenSection }) {
           disabled={moduleAccess.Compras !== true}
           onPress={() => handleOpenProtectedSection('Compras')}
         />
-        <QuickActionCard
-          title="Referencias costo"
-          description="Supervisor prepara y admin decide precio con trazabilidad."
-          badge={getModuleBadge('Referencias costo')}
-          disabled={moduleAccess['Referencias costo'] !== true}
-          onPress={() => handleOpenProtectedSection('Referencias costo')}
-        />
+        {showReferenciasCosto ? (
+          <QuickActionCard
+            title="Referencias costo"
+            description="Supervisor prepara y admin decide precio con trazabilidad."
+            badge={getModuleBadge('Referencias costo')}
+            disabled={moduleAccess['Referencias costo'] !== true}
+            onPress={() => handleOpenProtectedSection('Referencias costo')}
+          />
+        ) : null}
         <QuickActionCard
           title="Ventas"
           description="Flujo de venta y operacion principal."
