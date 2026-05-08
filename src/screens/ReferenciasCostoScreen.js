@@ -19,6 +19,7 @@ import {
 } from '../services/referenciaCostoService';
 import { getInventarioDisponible } from '../services/inventarioService';
 import { getRoleCode } from '../utils/accessControl';
+import { getActiveEnvironment } from '../config/environments';
 
 function normalizeReferencia(item) {
   return {
@@ -127,6 +128,13 @@ export default function ReferenciasCostoScreen({ onBack }) {
   const roleCode = getRoleCode(session && session.usuario ? session.usuario : null);
   const token = session && session.token ? session.token : '';
   const sedeId = session && session.sedeId ? session.sedeId : '';
+  const activeEnvironment = getActiveEnvironment();
+  const sedeLabel =
+    session && session.usuario && session.usuario.sedeId && typeof session.usuario.sedeId === 'object'
+      ? session.usuario.sedeId.nombre || session.usuario.sedeId.codigo || activeEnvironment.defaultSedeLabel
+      : sedeId && sedeId === activeEnvironment.defaultSedeId
+        ? activeEnvironment.defaultSedeLabel
+        : sedeId || 'sin sede';
   const canCreate = roleCode === 'admin' || roleCode === 'supervisor';
   const canApply = roleCode === 'admin';
   const canReview = roleCode === 'admin';
@@ -478,7 +486,7 @@ export default function ReferenciasCostoScreen({ onBack }) {
       <View style={styles.summaryCard}>
         <Text style={styles.summaryTitle}>Sesión actual</Text>
         <Text style={styles.summaryText}>Rol: {roleCode || 'sin rol'}</Text>
-        <Text style={styles.summaryText}>Sede usada: {sedeId || 'sin sede'}</Text>
+        <Text style={styles.summaryText}>Sede usada: {sedeLabel}</Text>
         <Text style={styles.summaryText}>Registros: {referencias.length}</Text>
         <Text style={styles.summaryText}>Pendientes: {pendingCount}</Text>
         <Text style={styles.summaryText}>Productos activos: {inventarioItems.length}</Text>
