@@ -124,6 +124,16 @@ export default function HomeScreen({ onOpenSection }) {
       layout="top"
       environment={activeEnvironment}
     >
+      <Pressable style={styles.button} onPress={() => handleCheckHealth(activeEnvironment)}>
+        <Text style={styles.buttonText}>Reintentar GET /health</Text>
+      </Pressable>
+
+      <HealthStatusCard
+        status={status}
+        loading={loading}
+        resultText={resultText}
+      />
+
       <LoginAccessCard
         activeEnvironment={activeEnvironment}
         onSessionChange={handleSessionChange}
@@ -198,15 +208,6 @@ export default function HomeScreen({ onOpenSection }) {
         />
       </View>
 
-      <Pressable style={styles.button} onPress={() => handleCheckHealth(activeEnvironment)}>
-        <Text style={styles.buttonText}>Reintentar GET /health</Text>
-      </Pressable>
-
-      <HealthStatusCard
-        status={status}
-        loading={loading}
-        resultText={resultText}
-      />
     </AppShell>
   );
 }
