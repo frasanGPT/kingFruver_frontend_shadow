@@ -1,6 +1,6 @@
 # Documentación kingFruver Frontend Shadow
 
-Este directorio contiene documentación operativa, funcional y de capacitación para el frontend shadow de kingFruver.
+Este directorio contiene documentación operativa, funcional, de capacitación y de preparación para Producción del frontend shadow de kingFruver.
 
 ## Regla operativa de ambientes
 
@@ -30,16 +30,38 @@ Producción queda protegida.
 
 No se debe pasar nada a producción sin validación previa en Shadow.
 
-En Producción, el módulo **Referencias costo** no es visible para:
+En Producción, el módulo **Referencias costo** no es visible actualmente para:
 
 - Admin,
 - Supervisor.
 
-Esto protege producción mientras el backend productivo no tenga integrado el módulo correspondiente.
+Este comportamiento es intencional y temporal. Protege Producción mientras backend productivo no tenga integrado el módulo completo.
+
+Esto no significa que Referencias costo se descarta para Producción. El servicio tiene un plan controlado de integración futura.
+
+---
 
 ## Guías disponibles
 
-### Referencias costo en ambiente Shadow
+### Índice de documentación
+
+Archivo:
+
+```text
+docs/README.md
+```
+
+Contenido principal:
+
+- regla Shadow / Producción,
+- documentos disponibles,
+- estado esperado del módulo,
+- checklist rápido,
+- convención para nueva documentación.
+
+---
+
+### Capacitación: Referencias costo en ambiente Shadow
 
 Archivo:
 
@@ -60,6 +82,77 @@ Contenido principal:
 - buenas prácticas,
 - casos de uso sugeridos,
 - checklist previo a capacitación.
+
+---
+
+### Checklist operativo: Demo Referencias costo en Shadow
+
+Archivo:
+
+```text
+docs/checklist-demo-referencias-costo-shadow.md
+```
+
+Contenido principal:
+
+- validación previa de frontend/backend,
+- validación de acceso por ambiente,
+- confirmación de Shadow Admin/Supervisor,
+- confirmación de Producción protegida,
+- flujo demo Supervisor,
+- flujo demo Admin,
+- validación de filtros,
+- qué no hacer durante una demo,
+- cierre operativo.
+
+---
+
+### Guion corto: Demo Referencias costo en Shadow
+
+Archivo:
+
+```text
+docs/guion-demo-referencias-costo-shadow.md
+```
+
+Contenido principal:
+
+- apertura de demo,
+- explicación del problema que resuelve,
+- explicación de roles,
+- validación de ambiente,
+- demo Supervisor,
+- demo Admin,
+- explicación de estados,
+- explicación de filtros,
+- cierre sugerido de 5 a 10 minutos.
+
+---
+
+### Plan controlado: Integración de Referencias costo a Producción
+
+Archivo:
+
+```text
+docs/plan-integracion-referencias-costo-produccion.md
+```
+
+Contenido principal:
+
+- regla temporal actual de Producción protegida,
+- fases para llevar Referencias costo a Producción,
+- revisión del PR backend Draft,
+- definición de ventana controlada,
+- merge backend/main solo con decisión explícita,
+- validación de Render Producción,
+- validación de `/health` producción,
+- matriz de endpoints y permisos esperados,
+- comandos `curl` sugeridos para futura validación,
+- criterios `403 FORBIDDEN` para roles sin permiso,
+- activación posterior de la tarjeta en frontend Producción,
+- rollback / plan de reversa.
+
+---
 
 ## Estado esperado del módulo Referencias costo
 
@@ -86,7 +179,7 @@ El módulo debe permitir:
 - filtrar por producto,
 - separar Pendientes e Históricas.
 
-### En Producción
+### En Producción actualmente
 
 Admin y Supervisor no deben ver la tarjeta:
 
@@ -94,7 +187,49 @@ Admin y Supervisor no deben ver la tarjeta:
 Referencias costo
 ```
 
-Este comportamiento es intencional para proteger el ambiente productivo.
+Este comportamiento es intencional para proteger el ambiente productivo mientras backend producción no soporte el módulo.
+
+### En Producción futuro
+
+Cuando backend Producción soporte Referencias costo y se complete la ventana controlada:
+
+- Admin Producción podrá ver Referencias costo,
+- Supervisor Producción podrá ver Referencias costo,
+- Cajero Producción no deberá ver Referencias costo,
+- Vendedor Producción no deberá ver Referencias costo.
+
+Ese cambio debe hacerse solo después de validar backend Producción y actualizar la protección actual del frontend.
+
+---
+
+## Plan de Producción: puntos técnicos clave
+
+El plan de Producción ya incluye una matriz real de endpoints y permisos esperados:
+
+- `GET /api/referencias-costo` → `referencias-costo:read`
+- `GET /api/referencias-costo/:id` → `referencias-costo:read`
+- `POST /api/referencias-costo` → `referencias-costo:create`
+- `PATCH /api/referencias-costo/:id/revisar` → `referencias-costo:review`
+- `PATCH /api/referencias-costo/:id/aplicar` → `referencias-costo:apply`
+
+Regla esperada por rol:
+
+- Admin: acceso completo por wildcard `*`.
+- Supervisor: lectura y creación.
+- Cajero: sin acceso.
+- Vendedor: sin acceso.
+
+El plan también incluye plantillas `curl` con variables locales para una futura ventana controlada:
+
+- `TOKEN_ADMIN_PROD`
+- `TOKEN_SUPERVISOR_PROD`
+- `TOKEN_CAJERO_PROD`
+- `TOKEN_VENDEDOR_PROD`
+- `REFERENCIA_COSTO_ID`
+
+No se deben pegar tokens reales en documentación, GitHub, chats ni capturas.
+
+---
 
 ## Checklist rápido antes de una capacitación
 
@@ -114,6 +249,27 @@ Antes de iniciar una capacitación en Shadow:
 - [ ] Se ve filtro por producto.
 - [ ] Se ve Sede usada: Sede Shadow (SH01).
 
+---
+
+## Checklist rápido antes de una futura activación en Producción
+
+Antes de activar Referencias costo en Producción:
+
+- [ ] Backend PR revisado.
+- [ ] Backend PR mergeado a `main` con decisión explícita.
+- [ ] Render producción desplegado.
+- [ ] `/health` producción OK.
+- [ ] Endpoints Referencias costo disponibles en Producción.
+- [ ] Matriz endpoints/permisos validada.
+- [ ] Admin Producción validado.
+- [ ] Supervisor Producción validado.
+- [ ] Cajero Producción no ve Referencias costo.
+- [ ] Vendedor Producción no ve Referencias costo.
+- [ ] Frontend cambia protección solo después de backend listo.
+- [ ] Documentación actualizada.
+
+---
+
 ## Convención de documentación
 
 Los documentos deben mantenerse dentro de:
@@ -130,6 +286,8 @@ Cuando se agregue nueva documentación, se recomienda:
 4. crear PR,
 5. mergear a `main` solo después de revisar que no toque código si el cambio es documental.
 
+---
+
 ## Última actualización funcional relacionada
 
 La documentación actual asume que frontend `main` incluye:
@@ -137,4 +295,7 @@ La documentación actual asume que frontend `main` incluye:
 - filtros de Referencias costo,
 - separación Pendientes / Históricas,
 - sede amigable en Referencias costo,
-- protección de producción ocultando Referencias costo fuera de Shadow.
+- protección de producción ocultando Referencias costo fuera de Shadow,
+- Home con `GET /health` y estado de backend antes del login,
+- plan controlado de Producción con matriz endpoints/permisos,
+- comandos sugeridos para validar endpoints en una futura ventana controlada.
