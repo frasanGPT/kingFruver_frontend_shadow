@@ -219,6 +219,13 @@ Regla esperada por rol:
 - Cajero: sin acceso.
 - Vendedor: sin acceso.
 
+Alcance funcional de inventario:
+
+- Referencias costo no mueve `stockDisponible`.
+- Referencias costo ajusta `costoPromedio` y `precioDeVenta` con trazabilidad.
+- El stock físico sigue viviendo en Compras, Lotes, Kardex, Ventas y ajustes futuros de inventario.
+- Esta regla evita que una decisión comercial de costo/precio simule una entrada física de mercancía.
+
 El plan también incluye plantillas `curl` con variables locales para una futura ventana controlada:
 
 - `TOKEN_ADMIN_PROD`
