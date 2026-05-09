@@ -154,6 +154,28 @@ Contenido principal:
 
 ---
 
+### Plan operativo: Ventana controlada Referencias costo a Producción
+
+Archivo:
+
+```text
+docs/plan-ventana-controlada-referencias-costo-produccion.md
+```
+
+Contenido principal:
+
+- planeación de una futura ventana controlada,
+- responsables y precondiciones,
+- datos de prueba y permisos esperados,
+- secuencia planeada de ejecución futura,
+- criterios de éxito,
+- criterios para abortar,
+- plan de rollback,
+- evidencias a capturar,
+- regla de no ejecución sin aprobación explícita.
+
+---
+
 ## Estado esperado del módulo Referencias costo
 
 ### En Shadow
