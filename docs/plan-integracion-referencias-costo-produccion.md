@@ -170,6 +170,28 @@ Resultado esperado:
 
 Luego validar endpoints del módulo de forma controlada.
 
+### Alcance funcional de inventario
+
+Referencias costo no debe mover inventario físico.
+
+Al aplicar una referencia, el alcance esperado es:
+
+- actualizar `costoPromedio`,
+- actualizar `precioDeVenta`,
+- conservar trazabilidad de la decisión administrativa.
+
+Referencias costo no debe actualizar `stockDisponible`.
+
+El stock físico debe seguir viviendo en los flujos operativos de:
+
+- Compras,
+- Lotes,
+- Kardex,
+- Ventas,
+- ajustes futuros de inventario.
+
+Esta regla evita que una decisión comercial de costo/precio simule una entrada física de mercancía.
+
 ### Matriz de endpoints y permisos esperados
 
 | Método | Endpoint | Permiso requerido | Admin | Supervisor | Cajero | Vendedor |
