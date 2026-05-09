@@ -119,6 +119,85 @@ Antes de considerar ejecución:
 
 ---
 
+## Ficha Go / No-Go antes de ejecutar
+
+Esta ficha debe completarse antes de considerar cualquier ejecución real.
+
+Completar esta ficha no autoriza ejecutar la ventana.
+
+### Responsables mínimos
+
+- Responsable técnico backend:
+- Responsable técnico frontend:
+- Responsable funcional Admin:
+- Responsable funcional Supervisor:
+- Responsable de validar Producción:
+- Responsable de rollback:
+- Persona que autoriza iniciar:
+- Persona que autoriza abortar:
+- Persona que autoriza cerrar:
+
+### Datos controlados de prueba
+
+- Sede de prueba:
+- Producto de prueba:
+- Inventario de prueba:
+- Referencia de costo de prueba:
+- Usuario Admin de prueba:
+- Usuario Supervisor de prueba:
+- Usuario Cajero de prueba:
+- Usuario Vendedor de prueba:
+
+### Autorizaciones requeridas
+
+Antes de ejecutar una ventana real, responder:
+
+- [ ] ¿Está aprobado marcar el PR backend como Ready for review?
+- [ ] ¿Está aprobado mergear backend a `main`?
+- [ ] ¿Está aprobado esperar o disparar deploy de Render Producción según el plan?
+- [ ] ¿Está aprobado validar endpoints productivos con datos controlados?
+- [ ] ¿Está aprobado preparar un PR frontend posterior para mostrar la tarjeta en Producción?
+- [ ] ¿Está aprobado abortar si aparece un criterio No-Go?
+
+Si alguna respuesta está pendiente, la ventana no debe ejecutarse.
+
+### Criterios Go
+
+Solo hay Go si se cumple todo:
+
+- [ ] Todos los responsables están definidos.
+- [ ] La ventana tiene hora de inicio.
+- [ ] La ventana tiene hora máxima de cierre.
+- [ ] El plan de rollback fue leído y aceptado.
+- [ ] Los datos de prueba están definidos.
+- [ ] Los tokens necesarios están preparados solo de forma local.
+- [ ] Shadow está sano.
+- [ ] Producción `/health` está OK antes de iniciar.
+- [ ] El PR backend fue revisado.
+- [ ] No hay conflictos visibles contra `origin/main`.
+- [ ] El alcance de stock está claro: Referencias costo no mueve `stockDisponible`.
+
+### Criterios No-Go
+
+Hay No-Go si ocurre cualquiera de estos casos:
+
+- Falta un responsable clave.
+- Falta autorización explícita.
+- No está claro el rollback.
+- No hay datos controlados de prueba.
+- Hay riesgo de modificar datos reales no autorizados.
+- Producción `/health` falla antes de iniciar.
+- Shadow no está sano.
+- Hay conflictos visibles contra `origin/main`.
+- No se puede confirmar el estado del PR backend Draft.
+- Se intenta usar o compartir tokens reales en documentación, GitHub, chats o capturas.
+- Hay dudas sobre permisos esperados por rol.
+- No está claro cómo abortar y volver a estado seguro.
+
+Con cualquier No-Go, la decisión correcta es mantener Producción protegida y reprogramar.
+
+---
+
 ## Datos de prueba requeridos
 
 Antes de ejecutar una ventana real, deben definirse datos controlados:
