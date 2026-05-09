@@ -197,6 +197,94 @@ Validaciones mínimas sugeridas:
 - Cajero Producción no puede acceder a endpoints de Referencias costo.
 - Vendedor Producción no puede acceder a endpoints de Referencias costo.
 
+### Comandos sugeridos para validar endpoints en Producción
+
+Estos comandos son plantillas para una futura ventana controlada. No deben ejecutarse con tokens reales pegados en documentación, GitHub, chats o capturas.
+
+Preparar variables localmente en la terminal:
+
+```bash
+export TOKEN_ADMIN_PROD="PEGAR_TOKEN_ADMIN_PROD"
+export TOKEN_SUPERVISOR_PROD="PEGAR_TOKEN_SUPERVISOR_PROD"
+export TOKEN_CAJERO_PROD="PEGAR_TOKEN_CAJERO_PROD"
+export TOKEN_VENDEDOR_PROD="PEGAR_TOKEN_VENDEDOR_PROD"
+export REFERENCIA_COSTO_ID="PEGAR_ID_REFERENCIA_COSTO_DE_PRUEBA"
+```
+
+Validar Admin Producción:
+
+```bash
+curl -i -H "Authorization: Bearer $TOKEN_ADMIN_PROD" \
+  https://kingfruver-api-prod.onrender.com/api/referencias-costo
+
+curl -i -H "Authorization: Bearer $TOKEN_ADMIN_PROD" \
+  https://kingfruver-api-prod.onrender.com/api/referencias-costo/$REFERENCIA_COSTO_ID
+```
+
+Resultado esperado:
+
+- HTTP 200 si el token es válido y el backend producción ya tiene el módulo.
+
+Validar Supervisor Producción:
+
+```bash
+curl -i -H "Authorization: Bearer $TOKEN_SUPERVISOR_PROD" \
+  https://kingfruver-api-prod.onrender.com/api/referencias-costo
+
+curl -i -H "Authorization: Bearer $TOKEN_SUPERVISOR_PROD" \
+  https://kingfruver-api-prod.onrender.com/api/referencias-costo/$REFERENCIA_COSTO_ID
+```
+
+Resultado esperado:
+
+- HTTP 200 para lectura/listado/detalle si el token es válido y el backend producción ya tiene el módulo.
+
+Validar que Cajero Producción no tenga acceso:
+
+```bash
+curl -i -H "Authorization: Bearer $TOKEN_CAJERO_PROD" \
+  https://kingfruver-api-prod.onrender.com/api/referencias-costo
+```
+
+Resultado esperado:
+
+- `403 FORBIDDEN`.
+
+Validar que Vendedor Producción no tenga acceso:
+
+```bash
+curl -i -H "Authorization: Bearer $TOKEN_VENDEDOR_PROD" \
+  https://kingfruver-api-prod.onrender.com/api/referencias-costo
+```
+
+Resultado esperado:
+
+- `403 FORBIDDEN`.
+
+Validar que Supervisor Producción no pueda revisar ni aplicar:
+
+```bash
+curl -i -X PATCH -H "Authorization: Bearer $TOKEN_SUPERVISOR_PROD" \
+  -H "Content-Type: application/json" \
+  -d '{"decision":"revisar_despues","observacionesAdmin":"Prueba controlada"}' \
+  https://kingfruver-api-prod.onrender.com/api/referencias-costo/$REFERENCIA_COSTO_ID/revisar
+
+curl -i -X PATCH -H "Authorization: Bearer $TOKEN_SUPERVISOR_PROD" \
+  -H "Content-Type: application/json" \
+  -d '{"precioVentaDecidido":0,"observacionesAdmin":"Prueba controlada"}' \
+  https://kingfruver-api-prod.onrender.com/api/referencias-costo/$REFERENCIA_COSTO_ID/aplicar
+```
+
+Resultado esperado:
+
+- `403 FORBIDDEN`.
+
+Notas:
+
+- No pegar tokens reales en GitHub, documentación, chats ni capturas.
+- No ejecutar comandos de creación, revisión o aplicación en Producción sin datos de prueba definidos.
+- Para probar `POST`, `PATCH /revisar` y `PATCH /aplicar`, primero debe existir una referencia de prueba aprobada para la ventana controlada.
+
 ---
 
 ### Fase 6: Activar tarjeta en Producción desde frontend
