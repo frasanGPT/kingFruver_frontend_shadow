@@ -170,13 +170,32 @@ Resultado esperado:
 
 Luego validar endpoints del módulo de forma controlada.
 
+### Matriz de endpoints y permisos esperados
+
+| Método | Endpoint | Permiso requerido | Admin | Supervisor | Cajero | Vendedor |
+| --- | --- | --- | --- | --- | --- | --- |
+| GET | `/api/referencias-costo` | `referencias-costo:read` | Sí | Sí | No | No |
+| GET | `/api/referencias-costo/:id` | `referencias-costo:read` | Sí | Sí | No | No |
+| POST | `/api/referencias-costo` | `referencias-costo:create` | Sí | Sí | No | No |
+| PATCH | `/api/referencias-costo/:id/revisar` | `referencias-costo:review` | Sí | No | No | No |
+| PATCH | `/api/referencias-costo/:id/aplicar` | `referencias-costo:apply` | Sí | No | No | No |
+
+Notas:
+
+- Admin tiene permiso wildcard `*`, por eso cubre `read`, `create`, `review` y `apply`.
+- Supervisor solo debe tener `referencias-costo:read` y `referencias-costo:create`.
+- Cajero y Vendedor no deben tener permisos de Referencias costo.
+- Si un rol sin permiso llama un endpoint protegido, la respuesta esperada es `403 FORBIDDEN`.
+
 Validaciones mínimas sugeridas:
 
-- GET listado Referencias costo.
-- GET detalle si existe id de prueba.
-- Permisos de Admin.
-- Permisos de Supervisor.
-- Que Cajero y Vendedor no tengan acceso indebido.
+- Admin Producción puede listar referencias.
+- Admin Producción puede consultar detalle.
+- Admin Producción puede crear, revisar y aplicar según el flujo aprobado.
+- Supervisor Producción puede listar, consultar detalle y crear.
+- Supervisor Producción no puede revisar ni aplicar.
+- Cajero Producción no puede acceder a endpoints de Referencias costo.
+- Vendedor Producción no puede acceder a endpoints de Referencias costo.
 
 ---
 
