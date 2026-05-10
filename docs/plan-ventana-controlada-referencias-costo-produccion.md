@@ -310,6 +310,68 @@ Mientras exista al menos un pendiente sin resolver:
 
 ---
 
+## Estado actual de pendientes NO-GO
+
+Esta sección registra el estado actual de la lista de pendientes sin cambiar la decisión operativa.
+
+Actualizar esta sección no autoriza ejecutar la ventana.
+
+### Evidencias recientes disponibles
+
+Estas evidencias ayudan a preparar una revisión futura, pero no convierten el estado en GO:
+
+- Frontend `main` limpio.
+- Backend `feat/referencias-costo-minimo` limpio.
+- Shadow `/health` OK.
+- Producción `/health` OK.
+- El PR backend sigue en Draft.
+- El alcance de stock sigue claro: Referencias costo no mueve `stockDisponible`.
+
+### Pendientes que siguen abiertos
+
+Responsables:
+
+- [ ] Confirmar responsable técnico backend.
+- [ ] Confirmar responsable técnico frontend.
+- [ ] Definir responsable funcional Admin.
+- [ ] Definir responsable funcional Supervisor.
+- [ ] Definir responsable de validar Producción.
+- [ ] Definir responsable de rollback.
+- [ ] Definir persona que autoriza iniciar.
+- [ ] Definir persona que autoriza abortar.
+- [ ] Definir persona que autoriza cerrar.
+
+Datos controlados:
+
+- [ ] Definir sede controlada de prueba.
+- [ ] Definir producto no crítico.
+- [ ] Definir inventario no crítico.
+- [ ] Definir referencia de costo de prueba.
+- [ ] Definir usuario Admin de prueba.
+- [ ] Definir usuario Supervisor de prueba.
+- [ ] Definir usuario Cajero de prueba.
+- [ ] Definir usuario Vendedor de prueba.
+
+Autorizaciones:
+
+- [ ] Ready backend sigue pendiente de autorización explícita.
+- [ ] Merge backend a `main` sigue pendiente de autorización explícita.
+- [ ] Deploy Producción sigue pendiente de autorización explícita.
+- [ ] Validación de endpoints productivos sigue pendiente de autorización explícita.
+- [ ] Activación frontend Producción sigue pendiente de autorización explícita.
+
+### Decisión actual después de revisar pendientes
+
+- Estado: NO-GO.
+- Producción debe mantenerse protegida.
+- El PR backend debe mantenerse en Draft.
+- Ready backend sigue NO AUTORIZADO.
+- Merge backend sigue NO AUTORIZADO.
+- Deploy Producción sigue NO AUTORIZADO.
+- La ventana controlada no debe ejecutarse.
+
+---
+
 ## Datos de prueba requeridos
 
 Antes de ejecutar una ventana real, deben definirse datos controlados:
