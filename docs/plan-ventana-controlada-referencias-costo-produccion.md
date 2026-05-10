@@ -125,28 +125,55 @@ Esta ficha debe completarse antes de considerar cualquier ejecución real.
 
 Completar esta ficha no autoriza ejecutar la ventana.
 
+### Estado de diligenciamiento
+
+Estado actual de la ficha:
+
+- Responsable técnico backend: Franklyn / PENDIENTE_CONFIRMAR.
+- Responsable técnico frontend: Franklyn / PENDIENTE_CONFIRMAR.
+- Responsable funcional Admin: PENDIENTE_DEFINIR.
+- Responsable funcional Supervisor: PENDIENTE_DEFINIR.
+- Responsable de validar Producción: PENDIENTE_DEFINIR.
+- Responsable de rollback: PENDIENTE_DEFINIR.
+- Persona que autoriza iniciar: PENDIENTE_DEFINIR.
+- Persona que autoriza abortar: PENDIENTE_DEFINIR.
+- Persona que autoriza cerrar: PENDIENTE_DEFINIR.
+
+Conclusión actual:
+
+- Estado: NO-GO.
+- Motivo: faltan responsables funcionales, responsable de rollback, autorizadores y datos controlados.
+- Producción debe mantenerse protegida.
+- El PR backend debe mantenerse en Draft.
+
 ### Responsables mínimos
 
-- Responsable técnico backend:
-- Responsable técnico frontend:
-- Responsable funcional Admin:
-- Responsable funcional Supervisor:
-- Responsable de validar Producción:
-- Responsable de rollback:
-- Persona que autoriza iniciar:
-- Persona que autoriza abortar:
-- Persona que autoriza cerrar:
+- Responsable técnico backend: Franklyn / PENDIENTE_CONFIRMAR.
+- Responsable técnico frontend: Franklyn / PENDIENTE_CONFIRMAR.
+- Responsable funcional Admin: PENDIENTE_DEFINIR.
+- Responsable funcional Supervisor: PENDIENTE_DEFINIR.
+- Responsable de validar Producción: PENDIENTE_DEFINIR.
+- Responsable de rollback: PENDIENTE_DEFINIR.
+- Persona que autoriza iniciar: PENDIENTE_DEFINIR.
+- Persona que autoriza abortar: PENDIENTE_DEFINIR.
+- Persona que autoriza cerrar: PENDIENTE_DEFINIR.
+
+Ninguna ventana debe ejecutarse si alguno de estos responsables sigue pendiente.
 
 ### Datos controlados de prueba
 
-- Sede de prueba:
-- Producto de prueba:
-- Inventario de prueba:
-- Referencia de costo de prueba:
-- Usuario Admin de prueba:
-- Usuario Supervisor de prueba:
-- Usuario Cajero de prueba:
-- Usuario Vendedor de prueba:
+- Sede de prueba: PENDIENTE_SEDE_CONTROLADA.
+- Producto de prueba: PENDIENTE_PRODUCTO_NO_CRITICO.
+- Inventario de prueba: PENDIENTE_INVENTARIO_NO_CRITICO.
+- Referencia de costo de prueba: SE_CREARA_SOLO_EN_VENTANA_APROBADA.
+- Usuario Admin de prueba: PENDIENTE_USUARIO_ADMIN_PROD_CONTROLADO.
+- Usuario Supervisor de prueba: PENDIENTE_USUARIO_SUPERVISOR_PROD_CONTROLADO.
+- Usuario Cajero de prueba: PENDIENTE_USUARIO_CAJERO_PROD_CONTROLADO.
+- Usuario Vendedor de prueba: PENDIENTE_USUARIO_VENDEDOR_PROD_CONTROLADO.
+- Tokens: DEFINIR_LOCALMENTE_SIN_DOCUMENTAR.
+- Capturas: SIN_TOKENS_Y_SIN_DATOS_SENSIBLES.
+
+No usar productos críticos, inventarios operativos sensibles ni tokens reales en documentación.
 
 ### Autorizaciones requeridas
 
@@ -158,6 +185,15 @@ Antes de ejecutar una ventana real, responder:
 - [ ] ¿Está aprobado validar endpoints productivos con datos controlados?
 - [ ] ¿Está aprobado preparar un PR frontend posterior para mostrar la tarjeta en Producción?
 - [ ] ¿Está aprobado abortar si aparece un criterio No-Go?
+
+Estado actual de autorizaciones:
+
+- Ready backend: NO AUTORIZADO.
+- Merge backend a `main`: NO AUTORIZADO.
+- Deploy Producción: NO AUTORIZADO.
+- Validación de endpoints productivos: NO AUTORIZADA.
+- Activación frontend Producción: NO AUTORIZADA.
+- Uso de tokens reales: NO AUTORIZADO EN DOCUMENTACIÓN.
 
 Si alguna respuesta está pendiente, la ventana no debe ejecutarse.
 
@@ -177,6 +213,11 @@ Solo hay Go si se cumple todo:
 - [ ] No hay conflictos visibles contra `origin/main`.
 - [ ] El alcance de stock está claro: Referencias costo no mueve `stockDisponible`.
 
+Estado actual:
+
+- Resultado: NO-GO.
+- Razón: faltan responsables, datos controlados, autorizaciones y hora de ventana.
+
 ### Criterios No-Go
 
 Hay No-Go si ocurre cualquiera de estos casos:
@@ -195,6 +236,14 @@ Hay No-Go si ocurre cualquiera de estos casos:
 - No está claro cómo abortar y volver a estado seguro.
 
 Con cualquier No-Go, la decisión correcta es mantener Producción protegida y reprogramar.
+
+### Decisión actual
+
+La decisión actual es NO-GO.
+
+La ventana controlada no debe ejecutarse todavía.
+
+El siguiente avance permitido es completar los campos pendientes con responsables y datos controlados, sin usar tokens reales y sin tocar Producción.
 
 ---
 
