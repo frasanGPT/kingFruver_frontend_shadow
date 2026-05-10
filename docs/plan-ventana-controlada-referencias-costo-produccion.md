@@ -247,6 +247,69 @@ El siguiente avance permitido es completar los campos pendientes con responsable
 
 ---
 
+## Pendientes para pasar de NO-GO a GO
+
+Esta sección convierte el estado NO-GO actual en una lista de pendientes accionables.
+
+Completar esta lista no autoriza ejecutar la ventana.
+
+Solo permite preparar la información necesaria para una revisión futura.
+
+### Responsables pendientes
+
+- [ ] Confirmar responsable técnico backend.
+- [ ] Confirmar responsable técnico frontend.
+- [ ] Definir responsable funcional Admin.
+- [ ] Definir responsable funcional Supervisor.
+- [ ] Definir responsable de validar Producción.
+- [ ] Definir responsable de rollback.
+- [ ] Definir persona que autoriza iniciar.
+- [ ] Definir persona que autoriza abortar.
+- [ ] Definir persona que autoriza cerrar.
+
+### Datos controlados pendientes
+
+- [ ] Definir sede controlada de prueba.
+- [ ] Definir producto no crítico.
+- [ ] Definir inventario no crítico.
+- [ ] Definir referencia de costo de prueba.
+- [ ] Definir usuario Admin de prueba.
+- [ ] Definir usuario Supervisor de prueba.
+- [ ] Definir usuario Cajero de prueba.
+- [ ] Definir usuario Vendedor de prueba.
+
+### Autorizaciones pendientes
+
+- [ ] Autorizar si el PR backend puede pasar de Draft a Ready for review.
+- [ ] Autorizar si el backend puede mergearse a `main`.
+- [ ] Autorizar si Render Producción puede desplegar el backend nuevo.
+- [ ] Autorizar si se pueden validar endpoints productivos con datos controlados.
+- [ ] Autorizar si luego se puede preparar PR frontend para mostrar la tarjeta en Producción.
+
+### Validaciones pendientes antes de cambiar a GO
+
+- [ ] Confirmar que Shadow sigue sano.
+- [ ] Confirmar que Producción `/health` sigue OK.
+- [ ] Confirmar que el PR backend sigue sin conflictos visibles contra `origin/main`.
+- [ ] Confirmar que el plan de rollback fue leído y aceptado.
+- [ ] Confirmar que no se documentan tokens reales.
+- [ ] Confirmar que no se usarán productos críticos ni inventarios sensibles.
+- [ ] Confirmar que el alcance de stock sigue claro: Referencias costo no mueve `stockDisponible`.
+
+### Estado después de esta lista
+
+Mientras exista al menos un pendiente sin resolver:
+
+- El estado sigue siendo NO-GO.
+- Producción debe mantenerse protegida.
+- El PR backend debe mantenerse en Draft.
+- Ready backend sigue NO AUTORIZADO.
+- Merge backend sigue NO AUTORIZADO.
+- Deploy Producción sigue NO AUTORIZADO.
+- La ventana controlada no debe ejecutarse.
+
+---
+
 ## Datos de prueba requeridos
 
 Antes de ejecutar una ventana real, deben definirse datos controlados:
