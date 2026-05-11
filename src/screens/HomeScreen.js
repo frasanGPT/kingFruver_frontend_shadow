@@ -52,7 +52,7 @@ export default function HomeScreen({ onOpenSection }) {
     return buildModuleAccess(session ? session.usuario : null);
   }, [session]);
 
-  const showReferenciasCosto = activeEnvironment.key === 'shadow';
+  const showReferenciasCosto = moduleAccess['Referencias costo'] === true;
 
   function handleSessionChange(nextSession) {
     setSession(nextSession);
