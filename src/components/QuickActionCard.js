@@ -8,6 +8,10 @@ export default function QuickActionCard({
   onPress,
   disabled = false,
 }) {
+  if (disabled) {
+    return null;
+  }
+
   return (
     <Pressable
       style={[styles.card, disabled ? styles.cardDisabled : null]}
