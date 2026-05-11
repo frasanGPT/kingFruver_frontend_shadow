@@ -41,6 +41,26 @@ Render:
 
 ---
 
+## Bloqueo operativo actual: Render Producción Auto-Deploy
+
+Actualmente `kingfruver-api-prod` está configurado sobre branch `main` con **Auto-Deploy On Commit**.
+
+Esto significa que cualquier merge backend hacia `main` puede iniciar un despliegue productivo automáticamente.
+
+Por esa razón, antes de cualquier merge backend a `main`, debe cumplirse una de estas dos condiciones:
+
+- Auto-Deploy de `kingfruver-api-prod` está apagado explícitamente antes del merge.
+- O el merge está autorizado como release productivo controlado, con ventana, responsables, rollback y validación definidos.
+
+Mientras este punto no esté resuelto:
+
+- PR backend Referencias costo sigue en Draft.
+- PR backend Compras → Stock → Kardex no se mergea.
+- No se marca Ready si no hay decisión explícita de ventana.
+- Producción se mantiene protegida.
+
+---
+
 ## Regla de seguridad
 
 Durante esta fase:
