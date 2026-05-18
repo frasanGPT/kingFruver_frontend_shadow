@@ -27,7 +27,8 @@ async function parseJsonResponse(response, path, method) {
     try {
       data = JSON.parse(text);
     } catch (error) {
-      throw new Error(`${method} ${path} returned invalid JSON`);
+      const preview = text.slice(0, 180).replace(/\s+/g, ' ').trim();
+      throw new Error(`${method} ${path} returned invalid JSON: ${preview || 'empty preview'}`);
     }
   }
 
@@ -38,6 +39,38 @@ async function parseJsonResponse(response, path, method) {
   }
 
   return data;
+}
+
+async function apiPost(path, body, token) {
+  const timeout = createTimeoutSignal(DEFAULT_TIMEOUT_MS);
+
+  try {
+    const headers = {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    };
+
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
+    const response = await fetch(buildUrl(path), {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body || {}),
+      signal: timeout.signal,
+    });
+
+    return await parseJsonResponse(response, path, 'POST');
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      throw new Error(`POST ${path} timed out after ${DEFAULT_TIMEOUT_MS}ms`);
+    }
+
+    throw error;
+  } finally {
+    timeout.clear();
+  }
 }
 
 async function apiPatch(path, body, token) {
@@ -104,6 +137,35 @@ export async function getCajas({ token, sedeId, estado, activo = true }) {
     timeoutMs: DEFAULT_TIMEOUT_MS,
     headers,
   });
+}
+
+export async function getCajaById({ id, token }) {
+  const headers = {};
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  return apiGet(`/api/cajas/${id}`, {
+    timeoutMs: DEFAULT_TIMEOUT_MS,
+    headers,
+  });
+}
+
+export async function createCaja({ sedeId, nombre, codigo, notas, token }) {
+  return apiPost('/api/cajas', { sedeId, nombre, codigo, notas }, token);
+}
+
+export async function updateCaja({ id, nombre, codigo, notas, token }) {
+  return apiPatch(`/api/cajas/${id}`, { nombre, codigo, notas }, token);
+}
+
+export async function activateCaja({ id, token }) {
+  return apiPatch(`/api/cajas/${id}/activate`, {}, token);
+}
+
+export async function deactivateCaja({ id, token }) {
+  return apiPatch(`/api/cajas/${id}/deactivate`, {}, token);
 }
 
 export async function openCaja({ id, saldoApertura, token }) {
