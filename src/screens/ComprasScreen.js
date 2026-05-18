@@ -29,6 +29,70 @@ function getId(value) {
   return '';
 }
 
+function normalizeSingleDecimalSeparator(raw, separator) {
+  const parts = raw.split(separator);
+
+  if (parts.length === 2) {
+    const [left, right] = parts;
+
+    if (right.length === 3 && left.length >= 1 && left.length <= 3) {
+      return left + right;
+    }
+
+    return `${left}.${right}`;
+  }
+
+  const groupParts = parts.slice(1);
+  const allGroupsLookLikeThousands = groupParts.every((part) => part.length === 3);
+
+  if (allGroupsLookLikeThousands) {
+    return parts.join('');
+  }
+
+  const last = parts[parts.length - 1];
+  const leading = parts.slice(0, -1).join('');
+
+  return `${leading}.${last}`;
+}
+
+function parseDecimalInput(value) {
+  if (value === null || value === undefined) {
+    return NaN;
+  }
+
+  const raw = String(value).trim().replace(/\s/g, '');
+
+  if (!raw) {
+    return NaN;
+  }
+
+  const hasComma = raw.includes(',');
+  const hasDot = raw.includes('.');
+  let normalized = raw;
+
+  if (hasComma && hasDot) {
+    const lastCommaIndex = raw.lastIndexOf(',');
+    const lastDotIndex = raw.lastIndexOf('.');
+    const decimalSeparator = lastCommaIndex > lastDotIndex ? ',' : '.';
+    const groupSeparator = decimalSeparator === ',' ? '.' : ',';
+
+    normalized = raw
+      .split(groupSeparator)
+      .join('')
+      .replace(decimalSeparator, '.');
+  } else if (hasComma) {
+    normalized = normalizeSingleDecimalSeparator(raw, ',');
+  } else if (hasDot) {
+    normalized = normalizeSingleDecimalSeparator(raw, '.');
+  }
+
+  if (!/^-?\d+(\.\d+)?$/.test(normalized)) {
+    return NaN;
+  }
+
+  return Number(normalized);
+}
+
 function getSedeIdFromSession(session) {
   const environment = getActiveEnvironment();
   const usuario = session && session.usuario ? session.usuario : null;
@@ -171,9 +235,9 @@ export default function ComprasScreen({ onBack }) {
   }, []);
 
   function validateCreateForm() {
-    const cantidad = Number(cantidadCompra);
-    const costo = Number(costoTotalItem);
-    const fleteNumber = flete.trim() ? Number(flete) : 0;
+    const cantidad = parseDecimalInput(cantidadCompra);
+    const costo = parseDecimalInput(costoTotalItem);
+    const fleteNumber = flete.trim() ? parseDecimalInput(flete) : 0;
 
     if (!token) return 'No hay sesión activa.';
     if (!canCreate) return 'Solo el administrador puede registrar compras.';
@@ -204,14 +268,14 @@ export default function ComprasScreen({ onBack }) {
         sedeId,
         proveedorId,
         origenCompra,
-        flete: flete.trim() ? Number(flete) : 0,
+        flete: flete.trim() ? parseDecimalInput(flete) : 0,
         notas: notas.trim() || undefined,
         items: [
           {
             productoNombre: productoNombre.trim(),
             unidadCompra,
-            cantidadCompra: Number(cantidadCompra),
-            costoTotalItem: Number(costoTotalItem),
+            cantidadCompra: parseDecimalInput(cantidadCompra),
+            costoTotalItem: parseDecimalInput(costoTotalItem),
           },
         ],
       };
@@ -353,7 +417,7 @@ export default function ComprasScreen({ onBack }) {
           value={cantidadCompra}
           onChangeText={setCantidadCompra}
           placeholder="Ej: 10"
-          keyboardType="numeric"
+          keyboardType="decimal-pad"
           editable={canCreate && !creating}
         />
 
@@ -363,7 +427,7 @@ export default function ComprasScreen({ onBack }) {
           value={costoTotalItem}
           onChangeText={setCostoTotalItem}
           placeholder="Ej: 35000"
-          keyboardType="numeric"
+          keyboardType="decimal-pad"
           editable={canCreate && !creating}
         />
 
@@ -373,7 +437,7 @@ export default function ComprasScreen({ onBack }) {
           value={flete}
           onChangeText={setFlete}
           placeholder="0"
-          keyboardType="numeric"
+          keyboardType="decimal-pad"
           editable={canCreate && !creating}
         />
 
