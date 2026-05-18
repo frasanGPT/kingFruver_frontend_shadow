@@ -26,7 +26,11 @@ export default function AppShell({
     <SafeAreaView style={[styles.safeArea, { backgroundColor }]}>
       <StatusBar barStyle="dark-content" />
 
-      <ScrollView contentContainerStyle={contentStyle}>
+      <ScrollView
+        contentContainerStyle={contentStyle}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+      >
         <View style={styles.inner}>
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.subtitle}>{subtitle}</Text>

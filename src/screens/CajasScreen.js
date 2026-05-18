@@ -2,9 +2,17 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import AppShell from '../components/AppShell';
 import StatusBadge from '../components/StatusBadge';
-import { closeCajaWithArqueo, getCajas, openCaja } from '../services/cajaService';
+import {
+  activateCaja,
+  closeCajaWithArqueo,
+  createCaja,
+  deactivateCaja,
+  getCajas,
+  openCaja,
+  updateCaja,
+} from '../services/cajaService';
 import { loadSession, saveSession } from '../services/sessionService';
-import { getRoleCode } from '../utils/accessControl';
+import { getRoleCode, hasPermission } from '../utils/accessControl';
 import { getActiveEnvironment } from '../config/environments';
 
 function getCajasEnvironment() {
@@ -119,6 +127,14 @@ export default function CajasScreen({ onBack }) {
   const [localResult, setLocalResult] = useState(
     'Todavía no has simulado una actualizacion local de caja.'
   );
+  const [adminNombre, setAdminNombre] = useState('');
+  const [adminCodigo, setAdminCodigo] = useState('');
+  const [adminNotas, setAdminNotas] = useState('');
+  const [adminResult, setAdminResult] = useState(
+    'Admin: todavía no has ejecutado una acción administrativa de caja.'
+  );
+  const [adminShowInactive, setAdminShowInactive] = useState(false);
+
 
   const selectedCaja = useMemo(() => {
     return cajas.find((caja) => caja._id === selectedCajaId) || null;
@@ -152,13 +168,40 @@ export default function CajasScreen({ onBack }) {
     return 'Cuadre perfecto: $0';
   }, [diferenciaArqueoEstimada]);
   const roleCode = getRoleCode(authUser);
+  const activeEnvironment = getCajasEnvironment();
+  const authEmail = String(authUser?.email || '').trim().toLowerCase();
+  const isAdmin =
+    roleCode === 'admin' ||
+    hasPermission(authUser, 'cajas:write') ||
+    authEmail === String(activeEnvironment.adminEmail || '').trim().toLowerCase();
   const isCajero = roleCode === 'cajero';
 
-  async function loadCajasRealtime(session, preferredCajaId = '') {
+  function canManageCajasAsAdmin(session) {
+    const sessionUser = session?.usuario || null;
+    const sessionRoleCode = getRoleCode(sessionUser);
+    const sessionEmail = String(sessionUser?.email || '').trim().toLowerCase();
+    const adminEmail = String(activeEnvironment.adminEmail || '').trim().toLowerCase();
+
+    return (
+      isAdmin ||
+      roleCode === 'admin' ||
+      sessionRoleCode === 'admin' ||
+      hasPermission(sessionUser, 'cajas:write') ||
+      authEmail === adminEmail ||
+      sessionEmail === adminEmail
+    );
+  }
+
+  async function loadCajasRealtime(session, preferredCajaId = '', adminShowInactiveOverride = null) {
+    const canUseAdminFilter = canManageCajasAsAdmin(session);
+    const adminInactiveMode =
+      adminShowInactiveOverride === null ? adminShowInactive : adminShowInactiveOverride;
+    const activoFilter = canUseAdminFilter ? (adminInactiveMode ? false : true) : true;
+
     const response = await getCajas({
       token: session.token,
       sedeId: session.sedeId || '',
-      activo: true,
+      activo: activoFilter,
     });
 
     const rows = response?.data || [];
@@ -166,8 +209,17 @@ export default function CajasScreen({ onBack }) {
 
     const cajaIdToRestore = preferredCajaId || session.cajaId || '';
 
-    if (cajaIdToRestore && rows.some((caja) => caja._id === cajaIdToRestore)) {
-      setSelectedCajaId(cajaIdToRestore);
+    const restoredCaja = rows.find((caja) => caja._id === cajaIdToRestore) || null;
+
+    if (restoredCaja) {
+      setSelectedCajaId(restoredCaja._id);
+
+      if (canUseAdminFilter) {
+        setAdminNombre(restoredCaja.nombre || '');
+        setAdminCodigo(restoredCaja.codigo || '');
+        setAdminNotas(restoredCaja.notas || '');
+      }
+
       setScreenResult(`Cajas cargadas: ${rows.length}. Caja guardada restaurada.`);
     } else {
       setSelectedCajaId('');
@@ -204,6 +256,14 @@ export default function CajasScreen({ onBack }) {
   async function handleSelectCaja(cajaId) {
     setSelectedCajaId(cajaId);
 
+    const caja = cajas.find((item) => item._id === cajaId);
+
+    if (isAdmin && caja) {
+      setAdminNombre(caja.nombre || '');
+      setAdminCodigo(caja.codigo || '');
+      setAdminNotas(caja.notas || '');
+    }
+
     try {
       const session = await loadSession();
 
@@ -214,6 +274,35 @@ export default function CajasScreen({ onBack }) {
         });
       }
     } catch (error) {
+    }
+  }
+
+  async function handleAdminCajaActivoFilter(nextShowInactive) {
+    if (adminShowInactive === nextShowInactive) {
+      return;
+    }
+
+    setAdminShowInactive(nextShowInactive);
+
+    try {
+      setActionLoading(true);
+      setScreenResult(nextShowInactive ? 'Cargando cajas inactivas...' : 'Cargando cajas activas...');
+
+      const session = await loadSession();
+
+      if (session?.token) {
+        setToken(session.token || '');
+        setSedeId(session.sedeId || '');
+        setAuthUser(session.usuario || null);
+
+        await loadCajasRealtime(session, selectedCajaId || session.cajaId || '', nextShowInactive);
+      } else {
+        setScreenResult('No hay sesión guardada. Entra a Home, valida acceso y vuelve.');
+      }
+    } catch (error) {
+      setScreenResult(`Error: ${error.message}`);
+    } finally {
+      setActionLoading(false);
     }
   }
 
@@ -345,6 +434,222 @@ export default function CajasScreen({ onBack }) {
     );
   }
 
+  function setAdminFeedback(message) {
+    setAdminResult(message);
+    setActionResult(message);
+  }
+
+  async function handleAdminCreateCaja() {
+    if (!isAdmin) {
+      setAdminFeedback('Solo admin puede crear cajas.');
+      return;
+    }
+
+    const nombre = adminNombre.trim();
+    const codigo = adminCodigo.trim();
+    const notas = adminNotas.trim();
+    const effectiveSedeId = sedeId || selectedCaja?.sedeId?._id || selectedCaja?.sedeId || '';
+
+    if (!effectiveSedeId) {
+      setAdminFeedback('No hay sedeId disponible para crear la caja.');
+      return;
+    }
+
+    if (!nombre) {
+      setAdminFeedback('El nombre de la caja es obligatorio.');
+      return;
+    }
+
+    if (!codigo) {
+      setAdminFeedback('El código de la caja es obligatorio.');
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+      setAdminFeedback('Admin: creando caja...');
+
+      const response = await createCaja({
+        sedeId: effectiveSedeId,
+        nombre,
+        codigo,
+        notas,
+        token,
+      });
+
+      const cajaCreada = response?.data || null;
+
+      setAdminFeedback(
+        [
+          'Admin: caja creada correctamente.',
+          `Nombre: ${cajaCreada?.nombre || nombre}`,
+          `Código: ${cajaCreada?.codigo || codigo}`,
+          `Estado: ${cajaCreada?.estado || 'cerrada'}`,
+          `Activa: ${cajaCreada?.activo === false ? 'No' : 'Sí'}`,
+        ].join('\n')
+      );
+
+      const session = await loadSession();
+
+      if (session?.token) {
+        await loadCajasRealtime(session, cajaCreada?._id || selectedCajaId);
+      }
+    } catch (error) {
+      setAdminFeedback(`Admin error: ${error.message}`);
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function handleAdminUpdateCaja() {
+    if (!isAdmin) {
+      setAdminFeedback('Solo admin puede editar cajas.');
+      return;
+    }
+
+    if (!selectedCaja) {
+      setAdminFeedback('Selecciona una caja para editar.');
+      return;
+    }
+
+    const nombre = adminNombre.trim();
+    const codigo = adminCodigo.trim();
+    const notas = adminNotas.trim();
+
+    if (!nombre) {
+      setAdminFeedback('El nombre de la caja es obligatorio.');
+      return;
+    }
+
+    if (!codigo) {
+      setAdminFeedback('El código de la caja es obligatorio.');
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+      setAdminFeedback('Admin: actualizando caja...');
+
+      const response = await updateCaja({
+        id: selectedCaja._id,
+        nombre,
+        codigo,
+        notas,
+        token,
+      });
+
+      const cajaEditada = response?.data || null;
+
+      setAdminFeedback(
+        [
+          'Admin: caja actualizada correctamente.',
+          `Nombre: ${cajaEditada?.nombre || nombre}`,
+          `Código: ${cajaEditada?.codigo || codigo}`,
+          `Estado: ${cajaEditada?.estado || selectedCaja.estado}`,
+          `Activa: ${cajaEditada?.activo === false ? 'No' : 'Sí'}`,
+        ].join('\n')
+      );
+
+      const session = await loadSession();
+
+      if (session?.token) {
+        await loadCajasRealtime(session, selectedCaja._id);
+      }
+    } catch (error) {
+      setAdminFeedback(`Admin error: ${error.message}`);
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function handleAdminActivateCaja() {
+    if (!isAdmin) {
+      setAdminFeedback('Solo admin puede activar cajas.');
+      return;
+    }
+
+    if (!selectedCaja) {
+      setAdminFeedback('Selecciona una caja para activar.');
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+      setAdminFeedback('Admin: activando caja...');
+
+      const response = await activateCaja({
+        id: selectedCaja._id,
+        token,
+      });
+
+      const cajaActivada = response?.data || null;
+
+      setAdminFeedback(
+        [
+          'Admin: caja activada correctamente.',
+          `Nombre: ${cajaActivada?.nombre || selectedCaja.nombre}`,
+          `Código: ${cajaActivada?.codigo || selectedCaja.codigo}`,
+          `Estado: ${cajaActivada?.estado || selectedCaja.estado}`,
+          `Activa: ${cajaActivada?.activo === false ? 'No' : 'Sí'}`,
+        ].join('\n')
+      );
+
+      const session = await loadSession();
+
+      if (session?.token) {
+        await loadCajasRealtime(session, selectedCaja._id);
+      }
+    } catch (error) {
+      setAdminFeedback(`Admin error: ${error.message}`);
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function handleAdminDeactivateCaja() {
+    if (!isAdmin) {
+      setAdminFeedback('Solo admin puede desactivar cajas.');
+      return;
+    }
+
+    if (!selectedCaja) {
+      setAdminFeedback('Selecciona una caja para desactivar.');
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+      setAdminFeedback('Admin: desactivando caja...');
+
+      const response = await deactivateCaja({
+        id: selectedCaja._id,
+        token,
+      });
+
+      const cajaDesactivada = response?.data || null;
+
+      setAdminFeedback(
+        [
+          'Admin: caja desactivada correctamente.',
+          `Nombre: ${cajaDesactivada?.nombre || selectedCaja.nombre}`,
+          `Código: ${cajaDesactivada?.codigo || selectedCaja.codigo}`,
+          `Estado: ${cajaDesactivada?.estado || selectedCaja.estado}`,
+          `Activa: ${cajaDesactivada?.activo === false ? 'No' : 'Sí'}`,
+        ].join('\n')
+      );
+
+      const session = await loadSession();
+
+      if (session?.token) {
+        await loadCajasRealtime(session, selectedCaja._id);
+      }
+    } catch (error) {
+      setAdminFeedback(`Admin error: ${error.message}`);
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
   return (
     <AppShell
       title="Cajas"
@@ -362,7 +667,11 @@ export default function CajasScreen({ onBack }) {
         {loading ? <ActivityIndicator size="large" style={styles.loader} /> : null}
         {actionLoading ? <ActivityIndicator size="large" style={styles.loader} /> : null}
 
-        <Pressable style={styles.reloadButton} onPress={handleRecargarCajas}>
+        <Pressable
+          style={[styles.reloadButton, actionLoading ? styles.disabledButton : null]}
+          onPress={handleRecargarCajas}
+          disabled={actionLoading}
+        >
           <Text style={styles.reloadButtonText}>Recargar cajas</Text>
         </Pressable>
       </View>
@@ -497,7 +806,11 @@ export default function CajasScreen({ onBack }) {
               style={styles.input}
             />
 
-            <Pressable style={styles.openButton} onPress={handleAbrirCajaReal}>
+            <Pressable
+              style={[styles.openButton, actionLoading ? styles.disabledButton : null]}
+              onPress={handleAbrirCajaReal}
+              disabled={actionLoading}
+            >
               <Text style={styles.openButtonText}>Abrir caja real</Text>
             </Pressable>
           </>
@@ -573,12 +886,151 @@ export default function CajasScreen({ onBack }) {
               style={styles.input}
             />
 
-            <Pressable style={styles.closeButton} onPress={handleCerrarCajaConArqueoReal}>
+            <Pressable
+              style={[styles.closeButton, actionLoading ? styles.disabledButton : null]}
+              onPress={handleCerrarCajaConArqueoReal}
+              disabled={actionLoading}
+            >
               <Text style={styles.closeButtonText}>Cerrar con arqueo real</Text>
             </Pressable>
           </>
         ) : null}
       </View>
+
+      {isAdmin ? (
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Administración de cajas</Text>
+          <Text style={styles.helperText}>
+            Crea, edita, activa o desactiva cajas. No abre ni cierra turnos operativos.
+          </Text>
+
+          <Text style={styles.label}>Filtro CRUD admin</Text>
+          <View style={styles.toggleRow}>
+            <Pressable
+              style={[
+                styles.toggleButton,
+                adminShowInactive === false ? styles.toggleButtonActive : null,
+                actionLoading ? styles.disabledButton : null,
+              ]}
+              onPress={() => handleAdminCajaActivoFilter(false)}
+              disabled={actionLoading}
+            >
+              <Text
+                style={[
+                  styles.toggleButtonText,
+                  adminShowInactive === false ? styles.toggleButtonTextActive : null,
+                ]}
+              >
+                Cajas activas
+              </Text>
+            </Pressable>
+
+            <Pressable
+              style={[
+                styles.toggleButton,
+                adminShowInactive === true ? styles.toggleButtonActive : null,
+                actionLoading ? styles.disabledButton : null,
+              ]}
+              onPress={() => handleAdminCajaActivoFilter(true)}
+              disabled={actionLoading}
+            >
+              <Text
+                style={[
+                  styles.toggleButtonText,
+                  adminShowInactive === true ? styles.toggleButtonTextActive : null,
+                ]}
+              >
+                Cajas inactivas
+              </Text>
+            </Pressable>
+          </View>
+          <Text style={styles.helperText}>
+            Supervisor y cajero solo ven cajas activas, abiertas o cerradas.
+          </Text>
+
+          <Text style={styles.label}>Resultado administrativo</Text>
+          <Text style={styles.resultText}>{adminResult}</Text>
+
+          <View style={styles.summaryBox}>
+            <Text style={styles.summaryLine}>Caja seleccionada para administrar:</Text>
+            {selectedCaja ? (
+              <>
+                <Text style={styles.summaryLine}>Nombre: {selectedCaja.nombre}</Text>
+                <Text style={styles.summaryLine}>Código: {selectedCaja.codigo}</Text>
+                <Text style={styles.summaryLine}>Estado: {selectedCaja.estado}</Text>
+                <Text style={styles.summaryLine}>
+                  Activa: {selectedCaja.activo === false ? 'No' : 'Sí'}
+                </Text>
+                <Text style={styles.summaryLine}>
+                  ID: {String(selectedCaja._id || '').slice(-6)}
+                </Text>
+              </>
+            ) : (
+              <Text style={styles.summaryLine}>
+                Ninguna. Selecciona una caja del listado antes de guardar, activar o desactivar.
+              </Text>
+            )}
+          </View>
+
+          <Text style={styles.label}>Nombre</Text>
+          <TextInput
+            value={adminNombre}
+            onChangeText={setAdminNombre}
+            placeholder="Nombre de la caja"
+            style={styles.input}
+          />
+
+          <Text style={styles.label}>Código</Text>
+          <TextInput
+            value={adminCodigo}
+            onChangeText={setAdminCodigo}
+            placeholder="Código único en la sede"
+            autoCapitalize="characters"
+            style={styles.input}
+          />
+
+          <Text style={styles.label}>Notas administrativas</Text>
+          <TextInput
+            value={adminNotas}
+            onChangeText={setAdminNotas}
+            placeholder="Opcional"
+            style={styles.input}
+          />
+
+          <Pressable
+            style={[styles.primaryButton, actionLoading ? styles.disabledButton : null]}
+            onPress={handleAdminCreateCaja}
+            disabled={actionLoading}
+          >
+            <Text style={styles.primaryButtonText}>Crear caja</Text>
+          </Pressable>
+
+          <Pressable
+            style={[styles.openButton, actionLoading || !selectedCaja ? styles.disabledButton : null]}
+            onPress={handleAdminUpdateCaja}
+            disabled={actionLoading || !selectedCaja}
+          >
+            <Text style={styles.openButtonText}>Guardar cambios de caja seleccionada</Text>
+          </Pressable>
+
+          <Pressable
+            style={[styles.primaryButton, actionLoading || !selectedCaja ? styles.disabledButton : null]}
+            onPress={handleAdminActivateCaja}
+            disabled={actionLoading || !selectedCaja}
+          >
+            <Text style={styles.primaryButtonText}>Activar caja seleccionada</Text>
+          </Pressable>
+
+          <Pressable
+            style={[styles.closeButton, actionLoading || !selectedCaja ? styles.disabledButton : null]}
+            onPress={handleAdminDeactivateCaja}
+            disabled={actionLoading || !selectedCaja}
+          >
+            <Text style={styles.closeButtonText}>Desactivar caja seleccionada</Text>
+          </Pressable>
+
+        </View>
+      ) : null}
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Resultado de acción real</Text>
@@ -589,7 +1041,11 @@ export default function CajasScreen({ onBack }) {
         <Text style={styles.cardTitle}>Resultado local</Text>
         <Text style={styles.resultText}>{localResult}</Text>
 
-        <Pressable style={styles.primaryButton} onPress={handleSimularActualizacion}>
+        <Pressable
+          style={[styles.primaryButton, actionLoading ? styles.disabledButton : null]}
+          onPress={handleSimularActualizacion}
+          disabled={actionLoading}
+        >
           <Text style={styles.primaryButtonText}>Simular actualizacion local</Text>
         </Pressable>
       </View>
@@ -736,6 +1192,37 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     marginTop: 12,
+  },
+  toggleRow: {
+    width: '100%',
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 10,
+  },
+  toggleButton: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    backgroundColor: '#f8fafc',
+    alignItems: 'center',
+  },
+  toggleButtonActive: {
+    backgroundColor: '#111827',
+    borderColor: '#111827',
+  },
+  toggleButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  toggleButtonTextActive: {
+    color: '#ffffff',
+  },
+  disabledButton: {
+    opacity: 0.55,
   },
   primaryButtonText: {
     color: '#ffffff',
