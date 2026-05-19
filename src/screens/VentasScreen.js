@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   StyleSheet,
   Text,
@@ -120,6 +121,50 @@ function getUserDisplayName(user) {
   return user?.email || user?.nombre || 'sin responsable';
 }
 
+function getShortId(value) {
+  const text = String(value || '');
+  return text.length <= 8 ? text : text.slice(-6);
+}
+
+function formatDateTime(value) {
+  if (!value) {
+    return 'sin fecha';
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return String(value);
+  }
+
+  return date.toLocaleString('es-CO');
+}
+
+function buildCarritoProductLines(carrito) {
+  const carritoItems = extractCarritoItems(carrito);
+
+  if (carritoItems.length === 0) {
+    return ['Sin detalle de productos'];
+  }
+
+  return carritoItems.map((item) => {
+    const nombre = item?.productoNombre || item?.nombre || 'Producto';
+    const cantidadItem = Number(item?.cantidad);
+    const unidadItem = item?.unidadVenta || item?.unidad || 'und';
+    const subtotalItem = Number(item?.subtotal);
+    const cantidadTexto = Number.isFinite(cantidadItem) ? cantidadItem : 0;
+    const subtotalTexto = Number.isFinite(subtotalItem)
+      ? ` = ${formatCurrency(subtotalItem)}`
+      : '';
+
+    return `${nombre} (${cantidadTexto} ${unidadItem})${subtotalTexto}`;
+  });
+}
+
+function buildCarritoProductSummary(carrito) {
+  return buildCarritoProductLines(carrito).join(' | ');
+}
+
 export default function VentasScreen({ onBack }) {
   const [productoNombre, setProductoNombre] = useState('');
   const [unidadVenta, setUnidadVenta] = useState('kg');
@@ -149,6 +194,7 @@ export default function VentasScreen({ onBack }) {
   const [carritosQueryResult, setCarritosQueryResult] = useState('Todavía no has consultado carritos.');
   const [carritosActivos, setCarritosActivos] = useState([]);
   const [carritoSeleccionadoActivo, setCarritoSeleccionadoActivo] = useState(null);
+  const [ventaConfirmada, setVentaConfirmada] = useState(false);
   const [loadingCarritos, setLoadingCarritos] = useState(false);
   const [cancellingCarrito, setCancellingCarrito] = useState(false);
   const [motivoCancelacionCarrito, setMotivoCancelacionCarrito] = useState('');
@@ -745,7 +791,21 @@ export default function VentasScreen({ onBack }) {
       );
 
       const activos = Array.isArray(response?.data) ? response.data : [];
+      const selectedStillActive = activos.find((carrito) => carrito?._id === carritoCreadoId);
+
       setCarritosActivos(activos);
+
+      if (carritoCreadoId) {
+        setVentaConfirmada(false);
+
+        if (selectedStillActive) {
+          setCarritoSeleccionadoActivo(selectedStillActive);
+        } else {
+          setCarritoCreadoId('');
+          setCarritoSeleccionadoActivo(null);
+        }
+      }
+
       if (isCajero && activos.length === 0) {
         setCarritosQueryResult('No hay carritos cobrables para esta sede.');
       } else {
@@ -780,17 +840,41 @@ export default function VentasScreen({ onBack }) {
       return;
     }
 
+    const carritoIdParaVender = carritoCreadoId.trim();
+    const carritoSeleccionadoPorId = carritosActivos.find(
+      (carrito) => carrito?._id === carritoIdParaVender
+    );
+    const carritoParaVender =
+      carritoSeleccionadoPorId ||
+      (carritoSeleccionadoActivo?._id === carritoIdParaVender ? carritoSeleccionadoActivo : null);
+
+    if (!carritoParaVender) {
+      const message = 'Vuelve a consultar y selecciona un carrito activo antes de cobrar.';
+      setVentaConfirmada(false);
+      setVentaResult(message);
+      Alert.alert('Carrito no confirmado', message);
+      return;
+    }
+
+    if (!ventaConfirmada) {
+      const message =
+        'Antes de cobrar, confirma visualmente el carrito seleccionado: ID corto, total e items.';
+      setVentaResult(message);
+      Alert.alert('Confirma el carrito antes de cobrar', message);
+      return;
+    }
+
     try {
       setCreatingVenta(true);
       setVentaResult(`Creando venta real en ${getEnvironmentLabelLower()}...`);
 
       const payload = {
-        carritoId: carritoCreadoId.trim(),
+        carritoId: carritoIdParaVender,
         cajaId: cajaId.trim(),
         metodoPago,
         notas: notas.trim(),
       };
-      const carritoIdVendido = carritoCreadoId.trim();
+      const carritoIdVendido = carritoIdParaVender;
 
       const response = await createVenta(payload, bearerToken.trim());
       const createdId = response?.data?._id || '';
@@ -835,6 +919,7 @@ export default function VentasScreen({ onBack }) {
         current.filter((carrito) => carrito?._id !== carritoIdVendido)
       );
       setCarritoSeleccionadoActivo(null);
+      setVentaConfirmada(false);
       setItems([]);
       setCarritoCreadoId('');
       resetForm();
@@ -883,6 +968,7 @@ export default function VentasScreen({ onBack }) {
       if (carritoCreadoId === carritoId) {
         setCarritoCreadoId('');
         setCarritoSeleccionadoActivo(null);
+        setVentaConfirmada(false);
       }
     } catch (error) {
       setCarritosQueryResult(`Error: ${error.message}`);
@@ -1208,7 +1294,10 @@ export default function VentasScreen({ onBack }) {
                     onPress={() => {
                       setCarritoCreadoId(carrito._id);
                       setCarritoSeleccionadoActivo(carrito);
-                      setVentaResult(`Carrito seleccionado para cobrar: ${carrito._id}`);
+                      setVentaConfirmada(false);
+                      setVentaResult(
+                        `Carrito seleccionado para revisar: #${getShortId(carrito._id)} | total ${formatCurrency(carrito?.total)}`
+                      );
                     }}
                   >
                     <Text
@@ -1265,7 +1354,60 @@ export default function VentasScreen({ onBack }) {
           </View>
         ) : null}
 
-        {carritoCreadoId ? (
+        {carritoSeleccionadoActivo ? (
+          (() => {
+            const selectedCartItems = buildCarritoProductLines(carritoSeleccionadoActivo);
+            const selectedCreatedAt = formatDateTime(
+              carritoSeleccionadoActivo?.createdAt || carritoSeleccionadoActivo?.updatedAt
+            );
+
+            return (
+              <View style={styles.cartConfirmationBox}>
+                <Text style={styles.cartConfirmationTitle}>
+                  Confirma el carrito antes de cobrar
+                </Text>
+                <Text style={styles.cartConfirmationText}>
+                  ID corto: #{getShortId(carritoSeleccionadoActivo?._id)}
+                </Text>
+                <Text style={styles.cartConfirmationText}>
+                  ID completo: {carritoSeleccionadoActivo?._id}
+                </Text>
+                <Text style={styles.cartConfirmationText}>
+                  Creado: {selectedCreatedAt}
+                </Text>
+                <Text style={styles.cartConfirmationText}>
+                  Total a cobrar: {formatCurrency(carritoSeleccionadoActivo?.total)}
+                </Text>
+                <Text style={styles.cartConfirmationText}>
+                  Estado: {carritoSeleccionadoActivo?.estado || 'activo'}
+                </Text>
+                <Text style={styles.cartConfirmationWarning}>
+                  Revisa producto por producto. Si este no es el carrito correcto, selecciona otro.
+                </Text>
+
+                {selectedCartItems.map((line, index) => (
+                  <Text key={`selected-cart-line-${index}`} style={styles.cartConfirmationText}>
+                    • {line}
+                  </Text>
+                ))}
+
+                <Pressable
+                  style={[
+                    styles.cartConfirmButton,
+                    ventaConfirmada ? styles.cartConfirmButtonActive : null,
+                  ]}
+                  onPress={() => setVentaConfirmada((current) => !current)}
+                >
+                  <Text style={styles.cartConfirmButtonText}>
+                    {ventaConfirmada
+                      ? 'Carrito confirmado para cobrar'
+                      : 'Confirmo que este es el carrito correcto'}
+                  </Text>
+                </Pressable>
+              </View>
+            );
+          })()
+        ) : carritoCreadoId ? (
           <Text style={styles.successText}>
             Carrito seleccionado para cobrar: {carritoCreadoId}
           </Text>
@@ -1746,6 +1888,51 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  cartConfirmationBox: {
+    backgroundColor: '#fff7ed',
+    borderWidth: 1,
+    borderColor: '#fdba74',
+    borderRadius: 12,
+    padding: 14,
+    marginTop: 10,
+    marginBottom: 12,
+  },
+  cartConfirmationTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#9a3412',
+    marginBottom: 8,
+  },
+  cartConfirmationText: {
+    fontSize: 14,
+    color: '#7c2d12',
+    lineHeight: 20,
+    marginBottom: 4,
+  },
+  cartConfirmationWarning: {
+    fontSize: 14,
+    color: '#9a3412',
+    lineHeight: 20,
+    fontWeight: '700',
+    marginTop: 6,
+    marginBottom: 8,
+  },
+  cartConfirmButton: {
+    backgroundColor: '#9a3412',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  cartConfirmButtonActive: {
+    backgroundColor: '#15803d',
+  },
+  cartConfirmButtonText: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '700',
   },
   technicalToggleButton: {
     width: '100%',
