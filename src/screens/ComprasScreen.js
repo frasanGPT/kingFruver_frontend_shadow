@@ -94,6 +94,68 @@ function parseDecimalInput(value) {
   return Number(normalized);
 }
 
+const CANONICAL_UNIT_OPTIONS = [
+  {
+    value: 'kg',
+    label: 'kg',
+    description: 'Kilogramos',
+  },
+  {
+    value: 'lb',
+    label: 'lb',
+    description: 'Libras',
+  },
+  {
+    value: 'und',
+    label: 'und',
+    description: 'Unidades',
+  },
+  {
+    value: 'caja',
+    label: 'caja',
+    description: 'Cajas',
+  },
+];
+
+function normalizeUnitInput(value) {
+  const text = String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, ' ');
+
+  const aliases = {
+    kg: 'kg',
+    kilo: 'kg',
+    kilos: 'kg',
+    kilogramo: 'kg',
+    kilogramos: 'kg',
+
+    lb: 'lb',
+    lbs: 'lb',
+    libra: 'lb',
+    libras: 'lb',
+    pound: 'lb',
+    pounds: 'lb',
+
+    und: 'und',
+    unid: 'und',
+    unidad: 'und',
+    unidades: 'und',
+
+    caja: 'caja',
+    cajas: 'caja',
+  };
+
+  return aliases[text] || '';
+}
+
+function getUnitDescription(value) {
+  const option = CANONICAL_UNIT_OPTIONS.find((item) => item.value === value);
+  return option ? option.description : 'Unidad no permitida';
+}
+
 function normalizeProductName(value) {
   return String(value || '')
     .normalize('NFD')
@@ -321,9 +383,14 @@ export default function ComprasScreen({ onBack }) {
   }
 
   function handleUnidadCompraChange(value) {
-    setUnidadCompra(String(value || '').trim().toLowerCase());
+    const canonicalUnit = normalizeUnitInput(value);
+    setUnidadCompra(canonicalUnit);
     setSelectedExistingProduct(null);
     setNewProductConfirmed(false);
+
+    if (!canonicalUnit) {
+      setScreenResult('Unidad no permitida. Usa una unidad existente: kg, lb, und o caja.');
+    }
   }
 
   function handleSelectExistingProduct(item) {
@@ -352,8 +419,8 @@ export default function ComprasScreen({ onBack }) {
       ? selectedExistingProduct.productoNombre
       : productoNombre.trim();
     const unidadCompraFinal = selectedExistingProduct
-      ? selectedExistingProduct.unidadBase
-      : unidadCompra;
+      ? normalizeUnitInput(selectedExistingProduct.unidadBase)
+      : normalizeUnitInput(unidadCompra);
 
     if (!proveedorId) return 'Selecciona un proveedor.';
     if (!productoNombreFinal) return 'El nombre del producto es obligatorio.';
@@ -398,8 +465,8 @@ export default function ComprasScreen({ onBack }) {
               ? selectedExistingProduct.productoNombre
               : productoNombre.trim(),
             unidadCompra: selectedExistingProduct
-              ? selectedExistingProduct.unidadBase
-              : unidadCompra,
+              ? normalizeUnitInput(selectedExistingProduct.unidadBase)
+              : normalizeUnitInput(unidadCompra),
             cantidadCompra: parseDecimalInput(cantidadCompra),
             costoTotalItem: parseDecimalInput(costoTotalItem),
           },
@@ -613,15 +680,40 @@ export default function ComprasScreen({ onBack }) {
           </Pressable>
         ) : null}
 
-        <Text style={styles.label}>Unidad: kg, lb, und o caja</Text>
-        <TextInput
-          style={styles.input}
-          value={unidadCompra}
-          onChangeText={handleUnidadCompraChange}
-          placeholder="kg"
-          autoCapitalize="none"
-          editable={canCreate && !creating && selectedExistingProduct === null}
-        />
+        <Text style={styles.label}>Unidad *</Text>
+        <Text style={styles.helperText}>
+          Selecciona una unidad existente. Por ahora no se crean unidades nuevas como paquete, kit o set.
+        </Text>
+
+        {selectedExistingProduct ? (
+          <View style={styles.unitLockedCard}>
+            <Text style={styles.productOptionTitle}>Unidad del producto seleccionado</Text>
+            <Text style={styles.productOptionMeta}>
+              {selectedExistingProduct.unidadBase} · {getUnitDescription(selectedExistingProduct.unidadBase)}
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.unitSelector}>
+            {CANONICAL_UNIT_OPTIONS.map((option) => {
+              const active = unidadCompra === option.value;
+
+              return (
+                <Pressable
+                  key={option.value}
+                  style={[
+                    styles.unitOption,
+                    active ? styles.unitOptionActive : null,
+                  ]}
+                  onPress={() => handleUnidadCompraChange(option.value)}
+                  disabled={!canCreate || creating}
+                >
+                  <Text style={styles.unitOptionLabel}>{option.label}</Text>
+                  <Text style={styles.unitOptionDescription}>{option.description}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        )}
 
         <Text style={styles.label}>Cantidad *</Text>
         <TextInput
@@ -845,6 +937,45 @@ const styles = StyleSheet.create({
     marginTop: 10,
     marginBottom: 10,
     backgroundColor: '#f3f4f6',
+  },
+  unitLockedCard: {
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 10,
+    marginBottom: 10,
+    backgroundColor: '#f9fafb',
+  },
+  unitSelector: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+    marginBottom: 10,
+  },
+  unitOption: {
+    minWidth: 96,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: '#ffffff',
+  },
+  unitOptionActive: {
+    borderColor: '#111827',
+    backgroundColor: '#e5e7eb',
+  },
+  unitOptionLabel: {
+    fontWeight: '900',
+    color: '#111827',
+    textTransform: 'uppercase',
+    marginBottom: 2,
+  },
+  unitOptionDescription: {
+    color: '#4b5563',
+    fontSize: 12,
   },
   warningCard: {
     borderWidth: 1,
