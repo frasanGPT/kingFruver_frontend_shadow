@@ -12,6 +12,7 @@ import AppShell from '../components/AppShell';
 import StateNoticeCard from '../components/StateNoticeCard';
 import { getActiveEnvironment } from '../config/environments';
 import { createCompra, getCompras } from '../services/compraService';
+import { getInventarioDisponible } from '../services/inventarioService';
 import { getProveedores } from '../services/proveedorService';
 import { loadSession } from '../services/sessionService';
 
@@ -93,6 +94,41 @@ function parseDecimalInput(value) {
   return Number(normalized);
 }
 
+function normalizeProductName(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, ' ');
+}
+
+function normalizeInventoryProduct(item) {
+  const productoNombre = item && item.productoNombre ? item.productoNombre : 'Producto sin nombre';
+  const unidadBase = item && item.unidadBase ? item.unidadBase : '';
+
+  return {
+    id: getId(item),
+    productoNombre,
+    unidadBase,
+    stockDisponible: item && item.stockDisponible !== undefined ? item.stockDisponible : 0,
+    costoPromedio: item && item.costoPromedio !== undefined ? item.costoPromedio : 0,
+    precioDeVenta: item && item.precioDeVenta !== undefined ? item.precioDeVenta : null,
+    activo: item && item.activo === true,
+    normalizedName: normalizeProductName(productoNombre),
+  };
+}
+
+function formatInventoryOption(item) {
+  return [
+    item.productoNombre,
+    item.unidadBase ? '(' + item.unidadBase + ')' : '',
+    'stock: ' + item.stockDisponible,
+  ]
+    .filter(Boolean)
+    .join(' ');
+}
+
 function getSedeIdFromSession(session) {
   const environment = getActiveEnvironment();
   const usuario = session && session.usuario ? session.usuario : null;
@@ -147,6 +183,9 @@ export default function ComprasScreen({ onBack }) {
   const [costoTotalItem, setCostoTotalItem] = useState('');
   const [flete, setFlete] = useState('');
   const [notas, setNotas] = useState('');
+  const [inventarioItems, setInventarioItems] = useState([]);
+  const [selectedExistingProduct, setSelectedExistingProduct] = useState(null);
+  const [newProductConfirmed, setNewProductConfirmed] = useState(false);
 
   const roleCode = getRoleCode(session && session.usuario ? session.usuario : null);
   const token = session && session.token ? session.token : '';
@@ -157,8 +196,39 @@ export default function ComprasScreen({ onBack }) {
     return proveedores.find((item) => item.id === proveedorId) || null;
   }, [proveedores, proveedorId]);
 
-  async function loadData(currentToken, successMessage) {
+  const normalizedProductSearch = normalizeProductName(productoNombre);
+
+  const filteredExistingProducts = useMemo(() => {
+    const activeItems = inventarioItems.filter((item) => item.activo === true);
+
+    if (normalizedProductSearch.length < 2) {
+      return activeItems.slice(0, 8);
+    }
+
+    return activeItems
+      .filter((item) => item.normalizedName.includes(normalizedProductSearch))
+      .slice(0, 8);
+  }, [inventarioItems, normalizedProductSearch]);
+
+  const exactExistingProductMatch = useMemo(() => {
+    if (normalizedProductSearch.length === 0) {
+      return null;
+    }
+
+    return (
+      inventarioItems.find((item) => {
+        return item.normalizedName === normalizedProductSearch && item.unidadBase === unidadCompra;
+      }) || null
+    );
+  }, [inventarioItems, normalizedProductSearch, unidadCompra]);
+
+  const hasExistingProductSuggestions =
+    normalizedProductSearch.length >= 2 && filteredExistingProducts.length > 0;
+
+  async function loadData(currentToken, successMessage, currentSession) {
     const effectiveToken = currentToken || token;
+    const effectiveSession = currentSession || session;
+    const effectiveSedeId = getSedeIdFromSession(effectiveSession);
 
     if (!effectiveToken) {
       setScreenResult('No hay sesión activa. Vuelve al inicio e inicia sesión.');
@@ -171,6 +241,9 @@ export default function ComprasScreen({ onBack }) {
 
       const proveedoresResponse = await getProveedores({ token: effectiveToken, activo: true });
       const comprasResponse = await getCompras({ token: effectiveToken });
+      const inventarioResponse = effectiveSedeId
+        ? await getInventarioDisponible({ sedeId: effectiveSedeId, token: effectiveToken })
+        : { data: [] };
 
       const proveedoresData = Array.isArray(proveedoresResponse && proveedoresResponse.data ? proveedoresResponse.data : null)
         ? proveedoresResponse.data
@@ -178,12 +251,17 @@ export default function ComprasScreen({ onBack }) {
       const comprasData = Array.isArray(comprasResponse && comprasResponse.data ? comprasResponse.data : null)
         ? comprasResponse.data
         : [];
+      const inventarioData = Array.isArray(inventarioResponse && inventarioResponse.data ? inventarioResponse.data : null)
+        ? inventarioResponse.data
+        : [];
 
       const normalizedProveedores = proveedoresData.map(normalizeProveedor);
       const normalizedCompras = comprasData.map(normalizeCompra);
+      const normalizedInventario = inventarioData.map(normalizeInventoryProduct);
 
       setProveedores(normalizedProveedores);
       setCompras(normalizedCompras);
+      setInventarioItems(normalizedInventario);
 
       if (!proveedorId && normalizedProveedores.length > 0) {
         setProveedorId(normalizedProveedores[0].id);
@@ -194,6 +272,8 @@ export default function ComprasScreen({ onBack }) {
         normalizedCompras.length +
         '. Proveedores activos: ' +
         normalizedProveedores.length +
+        '. Productos existentes: ' +
+        normalizedInventario.length +
         '.';
 
       setScreenResult(successMessage ? successMessage + ' ' + loadedMessage : loadedMessage);
@@ -216,7 +296,7 @@ export default function ComprasScreen({ onBack }) {
         setSession(restoredSession);
 
         if (restoredSession && restoredSession.token) {
-          await loadData(restoredSession.token);
+          await loadData(restoredSession.token, undefined, restoredSession);
         } else {
           setScreenResult('No hay sesión activa. Vuelve al inicio e inicia sesión.');
         }
@@ -234,6 +314,32 @@ export default function ComprasScreen({ onBack }) {
     };
   }, []);
 
+  function handleProductNameChange(value) {
+    setProductoNombre(value);
+    setSelectedExistingProduct(null);
+    setNewProductConfirmed(false);
+  }
+
+  function handleUnidadCompraChange(value) {
+    setUnidadCompra(String(value || '').trim().toLowerCase());
+    setSelectedExistingProduct(null);
+    setNewProductConfirmed(false);
+  }
+
+  function handleSelectExistingProduct(item) {
+    setSelectedExistingProduct(item);
+    setProductoNombre(item.productoNombre);
+    setUnidadCompra(item.unidadBase);
+    setNewProductConfirmed(false);
+    setScreenResult('Producto existente seleccionado: ' + formatInventoryOption(item));
+  }
+
+  function handleConfirmNewProduct() {
+    setSelectedExistingProduct(null);
+    setNewProductConfirmed(true);
+    setScreenResult('Producto nuevo confirmado: ' + productoNombre.trim() + ' (' + unidadCompra + ').');
+  }
+
   function validateCreateForm() {
     const cantidad = parseDecimalInput(cantidadCompra);
     const costo = parseDecimalInput(costoTotalItem);
@@ -242,9 +348,25 @@ export default function ComprasScreen({ onBack }) {
     if (!token) return 'No hay sesión activa.';
     if (!canCreate) return 'Solo el administrador puede registrar compras.';
     if (!sedeId) return 'No se encontró sede operativa para la compra.';
+    const productoNombreFinal = selectedExistingProduct
+      ? selectedExistingProduct.productoNombre
+      : productoNombre.trim();
+    const unidadCompraFinal = selectedExistingProduct
+      ? selectedExistingProduct.unidadBase
+      : unidadCompra;
+
     if (!proveedorId) return 'Selecciona un proveedor.';
-    if (!productoNombre.trim()) return 'El nombre del producto es obligatorio.';
-    if (!['kg', 'lb', 'und', 'caja'].includes(unidadCompra)) return 'Unidad inválida. Usa kg, lb, und o caja.';
+    if (!productoNombreFinal) return 'El nombre del producto es obligatorio.';
+    if (!['kg', 'lb', 'und', 'caja'].includes(unidadCompraFinal)) return 'Unidad inválida. Usa kg, lb, und o caja.';
+    if (selectedExistingProduct === null && exactExistingProductMatch !== null) {
+      return 'Ya existe un producto equivalente. Selecciónalo en la lista para evitar duplicados.';
+    }
+    if (selectedExistingProduct === null && hasExistingProductSuggestions) {
+      return 'Encontramos productos parecidos en inventario. Selecciona una coincidencia antes de registrar la compra.';
+    }
+    if (selectedExistingProduct === null && newProductConfirmed === false) {
+      return 'Confirma explícitamente que este producto es nuevo antes de registrar la compra.';
+    }
     if (!Number.isFinite(cantidad) || cantidad <= 0) return 'La cantidad debe ser mayor a cero.';
     if (!Number.isFinite(costo) || costo <= 0) return 'El costo total debe ser mayor a cero.';
     if (!Number.isFinite(fleteNumber) || fleteNumber < 0) return 'El flete no puede ser negativo.';
@@ -272,8 +394,12 @@ export default function ComprasScreen({ onBack }) {
         notas: notas.trim() || undefined,
         items: [
           {
-            productoNombre: productoNombre.trim(),
-            unidadCompra,
+            productoNombre: selectedExistingProduct
+              ? selectedExistingProduct.productoNombre
+              : productoNombre.trim(),
+            unidadCompra: selectedExistingProduct
+              ? selectedExistingProduct.unidadBase
+              : unidadCompra,
             cantidadCompra: parseDecimalInput(cantidadCompra),
             costoTotalItem: parseDecimalInput(costoTotalItem),
           },
@@ -284,11 +410,13 @@ export default function ComprasScreen({ onBack }) {
 
       if (response && response.ok === true) {
         setProductoNombre('');
+        setSelectedExistingProduct(null);
+        setNewProductConfirmed(false);
         setCantidadCompra('');
         setCostoTotalItem('');
         setFlete('');
         setNotas('');
-        await loadData(token, 'Compra registrada correctamente.');
+        await loadData(token, 'Compra registrada correctamente.', session);
         return;
       }
 
@@ -331,6 +459,7 @@ export default function ComprasScreen({ onBack }) {
         <Text style={styles.summaryText}>Sede usada: {sedeId || 'sin sede'}</Text>
         <Text style={styles.summaryText}>Compras cargadas: {compras.length}</Text>
         <Text style={styles.summaryText}>Proveedores activos: {proveedores.length}</Text>
+        <Text style={styles.summaryText}>Productos existentes: {inventarioItems.length}</Text>
         <Text style={styles.summaryText}>
           Registrar compra: {canCreate ? 'disponible para admin' : 'solo lectura'}
         </Text>
@@ -393,22 +522,105 @@ export default function ComprasScreen({ onBack }) {
         </View>
 
         <Text style={styles.label}>Producto *</Text>
+        <Text style={styles.helperText}>
+          Busca y selecciona un producto existente para evitar duplicados por mayúsculas, acentos o escritura.
+        </Text>
         <TextInput
           style={styles.input}
           value={productoNombre}
-          onChangeText={setProductoNombre}
-          placeholder="Ej: Papa capira"
+          onChangeText={handleProductNameChange}
+          placeholder="Ej: Mango de azúcar"
           editable={canCreate && !creating}
         />
+
+        {selectedExistingProduct ? (
+          <View style={styles.productSelectedCard}>
+            <Text style={styles.productOptionTitle}>Producto existente seleccionado</Text>
+            <Text style={styles.productOptionMeta}>
+              {formatInventoryOption(selectedExistingProduct)}
+            </Text>
+            <Pressable
+              style={styles.secondaryButton}
+              onPress={() => {
+                setSelectedExistingProduct(null);
+                setNewProductConfirmed(false);
+              }}
+              disabled={!canCreate || creating}
+            >
+              <Text style={styles.secondaryButtonText}>Cambiar selección</Text>
+            </Pressable>
+          </View>
+        ) : null}
+
+        {filteredExistingProducts.length > 0 ? (
+          <View style={styles.productList}>
+            <Text style={styles.helperText}>Coincidencias en inventario existente:</Text>
+            {filteredExistingProducts.map((item) => (
+              <Pressable
+                key={item.id || item.productoNombre + item.unidadBase}
+                style={[
+                  styles.productOption,
+                  exactExistingProductMatch && exactExistingProductMatch.id === item.id
+                    ? styles.productOptionSelected
+                    : null,
+                ]}
+                onPress={() => handleSelectExistingProduct(item)}
+                disabled={!canCreate || creating}
+              >
+                <Text style={styles.productOptionTitle}>{item.productoNombre}</Text>
+                <Text style={styles.productOptionMeta}>
+                  Unidad: {item.unidadBase || 'sin unidad'} | Stock: {item.stockDisponible} | Costo prom.: ${item.costoPromedio}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+
+        {selectedExistingProduct === null && exactExistingProductMatch !== null ? (
+          <View style={styles.warningCard}>
+            <Text style={styles.warningText}>
+              Ya existe un producto equivalente para esta unidad. Selecciónalo arriba para consolidar inventario.
+            </Text>
+          </View>
+        ) : null}
+
+        {selectedExistingProduct === null &&
+        exactExistingProductMatch === null &&
+        hasExistingProductSuggestions ? (
+          <View style={styles.warningCard}>
+            <Text style={styles.warningText}>
+              Encontramos productos parecidos en inventario. Para evitar duplicados, selecciona una coincidencia de la lista.
+            </Text>
+          </View>
+        ) : null}
+
+        {selectedExistingProduct === null &&
+        productoNombre.trim().length > 0 &&
+        hasExistingProductSuggestions === false ? (
+          <Pressable
+            style={[
+              styles.secondaryButton,
+              newProductConfirmed ? styles.secondaryButtonActive : null,
+            ]}
+            onPress={handleConfirmNewProduct}
+            disabled={!canCreate || creating || exactExistingProductMatch !== null}
+          >
+            <Text style={styles.secondaryButtonText}>
+              {newProductConfirmed
+                ? 'Producto nuevo confirmado'
+                : 'Confirmo que es un producto nuevo'}
+            </Text>
+          </Pressable>
+        ) : null}
 
         <Text style={styles.label}>Unidad: kg, lb, und o caja</Text>
         <TextInput
           style={styles.input}
           value={unidadCompra}
-          onChangeText={setUnidadCompra}
+          onChangeText={handleUnidadCompraChange}
           placeholder="kg"
           autoCapitalize="none"
-          editable={canCreate && !creating}
+          editable={canCreate && !creating && selectedExistingProduct === null}
         />
 
         <Text style={styles.label}>Cantidad *</Text>
@@ -573,6 +785,11 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     marginBottom: 10,
   },
+  cardText: {
+    fontSize: 14,
+    color: '#4b5563',
+    lineHeight: 20,
+  },
   label: {
     fontSize: 14,
     fontWeight: '800',
@@ -588,6 +805,79 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
     fontSize: 15,
     backgroundColor: '#ffffff',
+  },
+  productList: {
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 12,
+    padding: 10,
+    marginTop: 10,
+    marginBottom: 10,
+    backgroundColor: '#f9fafb',
+  },
+  productOption: {
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 8,
+    backgroundColor: '#ffffff',
+  },
+  productOptionSelected: {
+    borderColor: '#111827',
+    backgroundColor: '#e5e7eb',
+  },
+  productOptionTitle: {
+    fontWeight: '900',
+    color: '#111827',
+    marginBottom: 3,
+  },
+  productOptionMeta: {
+    color: '#4b5563',
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  productSelectedCard: {
+    borderWidth: 1,
+    borderColor: '#111827',
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 10,
+    marginBottom: 10,
+    backgroundColor: '#f3f4f6',
+  },
+  warningCard: {
+    borderWidth: 1,
+    borderColor: '#f59e0b',
+    borderRadius: 12,
+    padding: 10,
+    marginTop: 10,
+    marginBottom: 10,
+    backgroundColor: '#fffbeb',
+  },
+  warningText: {
+    color: '#92400e',
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: '700',
+  },
+  secondaryButton: {
+    borderWidth: 1,
+    borderColor: '#111827',
+    borderRadius: 10,
+    paddingVertical: 11,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    marginTop: 8,
+    marginBottom: 8,
+    backgroundColor: '#ffffff',
+  },
+  secondaryButtonActive: {
+    backgroundColor: '#e5e7eb',
+  },
+  secondaryButtonText: {
+    color: '#111827',
+    fontWeight: '900',
   },
   providerList: {
     maxHeight: 180,
