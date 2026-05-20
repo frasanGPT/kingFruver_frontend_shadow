@@ -117,6 +117,67 @@ const CANONICAL_UNIT_OPTIONS = [
   },
 ];
 
+const PRESENTATION_OPTIONS = [
+  {
+    value: 'unidad_base',
+    label: 'Unidad base',
+    description: 'Compra directa en kg, lb, und o caja',
+  },
+  {
+    value: 'costal',
+    label: 'Costal',
+    description: 'Presentación física que se convierte a inventario',
+  },
+  {
+    value: 'bulto',
+    label: 'Bulto',
+    description: 'Presentación física que se convierte a inventario',
+  },
+  {
+    value: 'paquete',
+    label: 'Paquete',
+    description: 'Presentación física que se convierte a inventario',
+  },
+  {
+    value: 'kit',
+    label: 'Kit',
+    description: 'Conjunto que se convierte a unidades base',
+  },
+  {
+    value: 'set',
+    label: 'Set',
+    description: 'Conjunto que se convierte a unidades base',
+  },
+];
+
+const CONTENT_UNIT_OPTIONS = [
+  {
+    value: 'kg',
+    label: 'kg',
+    description: 'Kilogramos',
+  },
+  {
+    value: 'g',
+    label: 'g',
+    description: 'Gramos',
+  },
+  {
+    value: 'lb',
+    label: 'lb',
+    description: 'Libras',
+  },
+  {
+    value: 'und',
+    label: 'und',
+    description: 'Unidades',
+  },
+  {
+    value: 'caja',
+    label: 'caja',
+    description: 'Cajas',
+  },
+];
+
 function normalizeUnitInput(value) {
   const text = String(value || '')
     .normalize('NFD')
@@ -154,6 +215,256 @@ function normalizeUnitInput(value) {
 function getUnitDescription(value) {
   const option = CANONICAL_UNIT_OPTIONS.find((item) => item.value === value);
   return option ? option.description : 'Unidad no permitida';
+}
+
+function normalizePresentationInput(value) {
+  const text = String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, ' ');
+
+  const aliases = {
+    unidad_base: 'unidad_base',
+    base: 'unidad_base',
+    directa: 'unidad_base',
+    normal: 'unidad_base',
+
+    costal: 'costal',
+    costales: 'costal',
+
+    bulto: 'bulto',
+    bultos: 'bulto',
+
+    paquete: 'paquete',
+    paquetes: 'paquete',
+    paq: 'paquete',
+
+    kit: 'kit',
+    kits: 'kit',
+
+    set: 'set',
+    sets: 'set',
+  };
+
+  return aliases[text] || '';
+}
+
+function getPresentationDescription(value) {
+  const option = PRESENTATION_OPTIONS.find((item) => item.value === value);
+  return option ? option.description : 'Presentación no permitida';
+}
+
+function normalizeContentUnitInput(value) {
+  const text = String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, ' ');
+
+  const aliases = {
+    kg: {
+      unidadContenido: 'kg',
+      unidadBaseInventario: 'kg',
+      factorABase: 1,
+      description: 'Kilogramos',
+    },
+    kilo: {
+      unidadContenido: 'kg',
+      unidadBaseInventario: 'kg',
+      factorABase: 1,
+      description: 'Kilogramos',
+    },
+    kilos: {
+      unidadContenido: 'kg',
+      unidadBaseInventario: 'kg',
+      factorABase: 1,
+      description: 'Kilogramos',
+    },
+    kilogramo: {
+      unidadContenido: 'kg',
+      unidadBaseInventario: 'kg',
+      factorABase: 1,
+      description: 'Kilogramos',
+    },
+    kilogramos: {
+      unidadContenido: 'kg',
+      unidadBaseInventario: 'kg',
+      factorABase: 1,
+      description: 'Kilogramos',
+    },
+
+    g: {
+      unidadContenido: 'g',
+      unidadBaseInventario: 'kg',
+      factorABase: 0.001,
+      description: 'Gramos',
+    },
+    gr: {
+      unidadContenido: 'g',
+      unidadBaseInventario: 'kg',
+      factorABase: 0.001,
+      description: 'Gramos',
+    },
+    gramo: {
+      unidadContenido: 'g',
+      unidadBaseInventario: 'kg',
+      factorABase: 0.001,
+      description: 'Gramos',
+    },
+    gramos: {
+      unidadContenido: 'g',
+      unidadBaseInventario: 'kg',
+      factorABase: 0.001,
+      description: 'Gramos',
+    },
+
+    lb: {
+      unidadContenido: 'lb',
+      unidadBaseInventario: 'lb',
+      factorABase: 1,
+      description: 'Libras',
+    },
+    lbs: {
+      unidadContenido: 'lb',
+      unidadBaseInventario: 'lb',
+      factorABase: 1,
+      description: 'Libras',
+    },
+    libra: {
+      unidadContenido: 'lb',
+      unidadBaseInventario: 'lb',
+      factorABase: 1,
+      description: 'Libras',
+    },
+    libras: {
+      unidadContenido: 'lb',
+      unidadBaseInventario: 'lb',
+      factorABase: 1,
+      description: 'Libras',
+    },
+
+    und: {
+      unidadContenido: 'und',
+      unidadBaseInventario: 'und',
+      factorABase: 1,
+      description: 'Unidades',
+    },
+    unid: {
+      unidadContenido: 'und',
+      unidadBaseInventario: 'und',
+      factorABase: 1,
+      description: 'Unidades',
+    },
+    unidad: {
+      unidadContenido: 'und',
+      unidadBaseInventario: 'und',
+      factorABase: 1,
+      description: 'Unidades',
+    },
+    unidades: {
+      unidadContenido: 'und',
+      unidadBaseInventario: 'und',
+      factorABase: 1,
+      description: 'Unidades',
+    },
+
+    caja: {
+      unidadContenido: 'caja',
+      unidadBaseInventario: 'caja',
+      factorABase: 1,
+      description: 'Cajas',
+    },
+    cajas: {
+      unidadContenido: 'caja',
+      unidadBaseInventario: 'caja',
+      factorABase: 1,
+      description: 'Cajas',
+    },
+  };
+
+  return aliases[text] || null;
+}
+
+function formatQuantityPreview(value) {
+  const number = Number(value);
+
+  if (!Number.isFinite(number)) {
+    return '';
+  }
+
+  return number.toLocaleString('es-CO', {
+    maximumFractionDigits: 4,
+  });
+}
+
+function roundPresentationValue(value) {
+  return Number(Number(value || 0).toFixed(4));
+}
+
+function buildPurchasePresentationPreview({
+  presentacionCompra,
+  cantidadCompra,
+  contenidoPorPresentacion,
+  unidadContenido,
+  unidadCompra,
+}) {
+  const normalizedPresentation = normalizePresentationInput(presentacionCompra) || 'unidad_base';
+  const cantidadPresentaciones = parseDecimalInput(cantidadCompra);
+  const unidadBaseDirecta = normalizeUnitInput(unidadCompra);
+
+  if (normalizedPresentation === 'unidad_base') {
+    return {
+      valid: Number.isFinite(cantidadPresentaciones) && cantidadPresentaciones > 0 && Boolean(unidadBaseDirecta),
+      message: 'Compra directa en unidad base.',
+      presentacionCompra: 'unidad_base',
+      cantidadPresentaciones,
+      contenidoPorPresentacion: 1,
+      unidadContenido: unidadBaseDirecta,
+      unidadBaseInventario: unidadBaseDirecta,
+      cantidadInventario: cantidadPresentaciones,
+    };
+  }
+
+  const contenido = parseDecimalInput(contenidoPorPresentacion);
+  const contentUnit = normalizeContentUnitInput(unidadContenido);
+
+  if (!contentUnit) {
+    return {
+      valid: false,
+      message: 'Selecciona una unidad de contenido válida.',
+      presentacionCompra: normalizedPresentation,
+      cantidadPresentaciones,
+      contenidoPorPresentacion: contenido,
+      unidadContenido: '',
+      unidadBaseInventario: '',
+      cantidadInventario: NaN,
+    };
+  }
+
+  const cantidadInventario = roundPresentationValue(
+    cantidadPresentaciones * contenido * contentUnit.factorABase
+  );
+
+  return {
+    valid:
+      Boolean(normalizedPresentation) &&
+      Number.isFinite(cantidadPresentaciones) &&
+      cantidadPresentaciones > 0 &&
+      Number.isFinite(contenido) &&
+      contenido > 0 &&
+      Number.isFinite(cantidadInventario) &&
+      cantidadInventario > 0,
+    message: 'Presentación convertida a unidad base de inventario.',
+    presentacionCompra: normalizedPresentation,
+    cantidadPresentaciones,
+    contenidoPorPresentacion: contenido,
+    unidadContenido: contentUnit.unidadContenido,
+    unidadBaseInventario: contentUnit.unidadBaseInventario,
+    cantidadInventario,
+  };
 }
 
 function normalizeProductName(value) {
@@ -241,6 +552,9 @@ export default function ComprasScreen({ onBack }) {
   const [origenCompra, setOrigenCompra] = useState('EN_BODEGA');
   const [productoNombre, setProductoNombre] = useState('');
   const [unidadCompra, setUnidadCompra] = useState('kg');
+  const [presentacionCompra, setPresentacionCompra] = useState('unidad_base');
+  const [contenidoPorPresentacion, setContenidoPorPresentacion] = useState('1');
+  const [unidadContenido, setUnidadContenido] = useState('kg');
   const [cantidadCompra, setCantidadCompra] = useState('');
   const [costoTotalItem, setCostoTotalItem] = useState('');
   const [flete, setFlete] = useState('');
@@ -346,6 +660,16 @@ export default function ComprasScreen({ onBack }) {
     }
   }
 
+  const presentationPreview = useMemo(() => {
+    return buildPurchasePresentationPreview({
+      presentacionCompra,
+      cantidadCompra,
+      contenidoPorPresentacion,
+      unidadContenido,
+      unidadCompra,
+    });
+  }, [cantidadCompra, contenidoPorPresentacion, presentacionCompra, unidadCompra, unidadContenido]);
+
   useEffect(() => {
     let mounted = true;
 
@@ -388,15 +712,57 @@ export default function ComprasScreen({ onBack }) {
     setSelectedExistingProduct(null);
     setNewProductConfirmed(false);
 
+    if (presentacionCompra === 'unidad_base') {
+      setUnidadContenido(canonicalUnit);
+    }
+
     if (!canonicalUnit) {
       setScreenResult('Unidad no permitida. Usa una unidad existente: kg, lb, und o caja.');
     }
+  }
+
+  function handlePresentacionCompraChange(value) {
+    const normalizedPresentation = normalizePresentationInput(value);
+
+    if (!normalizedPresentation) {
+      setScreenResult('Presentación no permitida. Usa unidad base, costal, bulto, paquete, kit o set.');
+      return;
+    }
+
+    setPresentacionCompra(normalizedPresentation);
+
+    if (normalizedPresentation === 'unidad_base') {
+      const baseUnit = selectedExistingProduct
+        ? normalizeUnitInput(selectedExistingProduct.unidadBase)
+        : normalizeUnitInput(unidadCompra);
+
+      setContenidoPorPresentacion('1');
+      setUnidadContenido(baseUnit || 'kg');
+    } else if (!normalizeContentUnitInput(unidadContenido)) {
+      setUnidadContenido(
+        selectedExistingProduct
+          ? normalizeUnitInput(selectedExistingProduct.unidadBase)
+          : normalizeUnitInput(unidadCompra) || 'kg'
+      );
+    }
+  }
+
+  function handleUnidadContenidoChange(value) {
+    const contentUnit = normalizeContentUnitInput(value);
+
+    if (!contentUnit) {
+      setScreenResult('Unidad de contenido no permitida. Usa kg, g, lb, und o caja.');
+      return;
+    }
+
+    setUnidadContenido(contentUnit.unidadContenido);
   }
 
   function handleSelectExistingProduct(item) {
     setSelectedExistingProduct(item);
     setProductoNombre(item.productoNombre);
     setUnidadCompra(item.unidadBase);
+    setUnidadContenido(item.unidadBase);
     setNewProductConfirmed(false);
     setScreenResult('Producto existente seleccionado: ' + formatInventoryOption(item));
   }
@@ -425,6 +791,14 @@ export default function ComprasScreen({ onBack }) {
     if (!proveedorId) return 'Selecciona un proveedor.';
     if (!productoNombreFinal) return 'El nombre del producto es obligatorio.';
     if (!['kg', 'lb', 'und', 'caja'].includes(unidadCompraFinal)) return 'Unidad inválida. Usa kg, lb, und o caja.';
+    if (!presentationPreview.valid) {
+      return presentationPreview.message || 'Revisa la presentación de compra antes de registrar.';
+    }
+    if (presentationPreview.unidadBaseInventario !== unidadCompraFinal) {
+      return selectedExistingProduct
+        ? 'La presentación calcula inventario en ' + presentationPreview.unidadBaseInventario + ', pero el producto seleccionado está en ' + unidadCompraFinal + '. Ajusta la presentación o selecciona otro producto.'
+        : 'La presentación calcula inventario en ' + presentationPreview.unidadBaseInventario + ', pero la unidad base seleccionada es ' + unidadCompraFinal + '. Ajusta la unidad base o la presentación antes de registrar.';
+    }
     if (selectedExistingProduct === null && exactExistingProductMatch !== null) {
       return 'Ya existe un producto equivalente. Selecciónalo en la lista para evitar duplicados.';
     }
@@ -464,11 +838,16 @@ export default function ComprasScreen({ onBack }) {
             productoNombre: selectedExistingProduct
               ? selectedExistingProduct.productoNombre
               : productoNombre.trim(),
-            unidadCompra: selectedExistingProduct
-              ? normalizeUnitInput(selectedExistingProduct.unidadBase)
-              : normalizeUnitInput(unidadCompra),
-            cantidadCompra: parseDecimalInput(cantidadCompra),
+            unidadCompra: presentationPreview.unidadBaseInventario,
+            cantidadCompra: presentationPreview.cantidadInventario,
             costoTotalItem: parseDecimalInput(costoTotalItem),
+            presentacionCompra: presentationPreview.presentacionCompra,
+            cantidadPresentaciones: presentationPreview.cantidadPresentaciones,
+            contenidoPorPresentacion: presentationPreview.contenidoPorPresentacion,
+            unidadContenido: presentationPreview.unidadContenido,
+            unidadBaseInventario: presentationPreview.unidadBaseInventario,
+            cantidadInventario: presentationPreview.cantidadInventario,
+            unidadVentaPrincipal: presentationPreview.unidadBaseInventario,
           },
         ],
       };
@@ -479,6 +858,9 @@ export default function ComprasScreen({ onBack }) {
         setProductoNombre('');
         setSelectedExistingProduct(null);
         setNewProductConfirmed(false);
+        setPresentacionCompra('unidad_base');
+        setContenidoPorPresentacion('1');
+        setUnidadContenido('kg');
         setCantidadCompra('');
         setCostoTotalItem('');
         setFlete('');
@@ -536,7 +918,7 @@ export default function ComprasScreen({ onBack }) {
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Registrar compra</Text>
         <Text style={styles.helperText}>
-          Esta compra queda confirmada, pero todavía no genera lote ni inventario.
+          Esta compra recibida genera lote, inventario y kardex en la unidad base calculada.
         </Text>
 
         <Text style={styles.label}>Proveedor</Text>
@@ -682,7 +1064,7 @@ export default function ComprasScreen({ onBack }) {
 
         <Text style={styles.label}>Unidad *</Text>
         <Text style={styles.helperText}>
-          Selecciona una unidad existente. Por ahora no se crean unidades nuevas como paquete, kit o set.
+          Selecciona la unidad base de inventario y venta. Las presentaciones se configuran abajo y se convierten a esta unidad.
         </Text>
 
         {selectedExistingProduct ? (
@@ -715,12 +1097,100 @@ export default function ComprasScreen({ onBack }) {
           </View>
         )}
 
-        <Text style={styles.label}>Cantidad *</Text>
+        <Text style={styles.label}>Presentación de compra *</Text>
+        <Text style={styles.helperText}>
+          La presentación no es unidad de inventario. Se convierte a kg, lb, und o caja antes de registrar.
+        </Text>
+
+        <View style={styles.unitSelector}>
+          {PRESENTATION_OPTIONS.map((option) => {
+            const active = presentacionCompra === option.value;
+
+            return (
+              <Pressable
+                key={option.value}
+                style={[
+                  styles.unitOption,
+                  active ? styles.unitOptionActive : null,
+                ]}
+                onPress={() => handlePresentacionCompraChange(option.value)}
+                disabled={!canCreate || creating}
+              >
+                <Text style={styles.unitOptionLabel}>{option.label}</Text>
+                <Text style={styles.unitOptionDescription}>{option.description}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {presentacionCompra !== 'unidad_base' ? (
+          <>
+            <Text style={styles.label}>Contenido por presentación *</Text>
+            <TextInput
+              style={styles.input}
+              value={contenidoPorPresentacion}
+              onChangeText={setContenidoPorPresentacion}
+              placeholder="Ej: 50"
+              keyboardType="decimal-pad"
+              editable={canCreate && !creating}
+            />
+
+            <Text style={styles.label}>Unidad del contenido *</Text>
+            <View style={styles.unitSelector}>
+              {CONTENT_UNIT_OPTIONS.map((option) => {
+                const active = unidadContenido === option.value;
+
+                return (
+                  <Pressable
+                    key={option.value}
+                    style={[
+                      styles.unitOption,
+                      active ? styles.unitOptionActive : null,
+                    ]}
+                    onPress={() => handleUnidadContenidoChange(option.value)}
+                    disabled={!canCreate || creating}
+                  >
+                    <Text style={styles.unitOptionLabel}>{option.label}</Text>
+                    <Text style={styles.unitOptionDescription}>{option.description}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </>
+        ) : null}
+
+        <View style={styles.unitLockedCard}>
+          <Text style={styles.productOptionTitle}>Impacto calculado en inventario</Text>
+          <Text style={styles.productOptionMeta}>
+            {presentationPreview.valid
+              ? formatQuantityPreview(presentationPreview.cantidadInventario) + ' ' + presentationPreview.unidadBaseInventario
+              : 'Completa cantidad y presentación para calcular inventario.'}
+          </Text>
+          <Text style={styles.helperText}>
+            {presentacionCompra === 'unidad_base'
+              ? 'Compra directa en unidad base.'
+              : cantidadCompra + ' ' + getPresentationDescription(presentacionCompra).toLowerCase() + ' × ' + contenidoPorPresentacion + ' ' + unidadContenido}
+          </Text>
+        </View>
+
+        {selectedExistingProduct &&
+        presentationPreview.valid &&
+        presentationPreview.unidadBaseInventario !== normalizeUnitInput(selectedExistingProduct.unidadBase) ? (
+          <View style={styles.warningCard}>
+            <Text style={styles.warningText}>
+              La presentación calcula inventario en {presentationPreview.unidadBaseInventario}, pero el producto seleccionado está en {selectedExistingProduct.unidadBase}. Ajusta la presentación antes de registrar.
+            </Text>
+          </View>
+        ) : null}
+
+        <Text style={styles.label}>
+          {presentacionCompra === 'unidad_base' ? 'Cantidad *' : 'Cantidad de presentaciones *'}
+        </Text>
         <TextInput
           style={styles.input}
           value={cantidadCompra}
           onChangeText={setCantidadCompra}
-          placeholder="Ej: 10"
+          placeholder={presentacionCompra === 'unidad_base' ? 'Ej: 10' : 'Ej: 2 costales'}
           keyboardType="decimal-pad"
           editable={canCreate && !creating}
         />
@@ -798,6 +1268,9 @@ export default function ComprasScreen({ onBack }) {
               {item.items.map((compraItem, index) => (
                 <Text key={index} style={styles.compraItemText}>
                   • {compraItem.productoNombre} · {compraItem.cantidadCompra} {compraItem.unidadCompra} · ${compraItem.costoTotalItem}
+                  {compraItem.presentacionCompra && compraItem.presentacionCompra !== 'unidad_base'
+                    ? ' · presentación: ' + compraItem.cantidadPresentaciones + ' ' + compraItem.presentacionCompra + ' de ' + compraItem.contenidoPorPresentacion + ' ' + compraItem.unidadContenido
+                    : ''}
                 </Text>
               ))}
             </View>
