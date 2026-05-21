@@ -66,6 +66,9 @@ const compras =
 roleCode === "admin" || hasPermission(usuario, "compras:read");
 const referenciasCosto =
 roleCode === "admin" || hasPermission(usuario, "referencias-costo:read");
+const kardexAuditoria =
+roleCode === "admin" ||
+(hasPermission(usuario, "kardex:read") && hasPermission(usuario, "auditoria:read"));
 return {
 Productos: productos,
 Ventas: ventas,
@@ -76,5 +79,6 @@ Seguridad: seguridad,
 Proveedores: proveedores,
 Compras: compras,
 "Referencias costo": referenciasCosto,
+"Kardex y auditoría": kardexAuditoria,
 };
 }

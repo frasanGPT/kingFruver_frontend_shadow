@@ -10,6 +10,7 @@ import SeguridadScreen from './src/screens/SeguridadScreen';
 import ProveedoresScreen from './src/screens/ProveedoresScreen';
 import ComprasScreen from './src/screens/ComprasScreen';
 import ReferenciasCostoScreen from './src/screens/ReferenciasCostoScreen';
+import KardexAuditoriaScreen from './src/screens/KardexAuditoriaScreen';
 
 export default function App() {
 const [route, setRoute] = useState({ name: 'home', params: null });
@@ -59,6 +60,11 @@ if (sectionName === 'Referencias costo') {
   return;
 }
 
+if (sectionName === 'Kardex y auditoría') {
+  setRoute({ name: 'kardex-auditoria', params: null });
+  return;
+}
+
 setRoute({
   name: 'section-placeholder',
   params: { sectionName },
@@ -103,6 +109,10 @@ return <ComprasScreen onBack={handleBackToHome} />;
 
 if (route.name === 'referencias-costo') {
 return <ReferenciasCostoScreen onBack={handleBackToHome} />;
+}
+
+if (route.name === 'kardex-auditoria') {
+return <KardexAuditoriaScreen onBack={handleBackToHome} />;
 }
 
 if (route.name === 'section-placeholder') {

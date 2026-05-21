@@ -53,6 +53,7 @@ export default function HomeScreen({ onOpenSection }) {
   }, [session]);
 
   const showReferenciasCosto = moduleAccess['Referencias costo'] === true;
+  const showKardexAuditoria = moduleAccess['Kardex y auditoría'] === true;
 
   function handleSessionChange(nextSession) {
     setSession(nextSession);
@@ -169,6 +170,15 @@ export default function HomeScreen({ onOpenSection }) {
             badge={getModuleBadge('Referencias costo')}
             disabled={moduleAccess['Referencias costo'] !== true}
             onPress={() => handleOpenProtectedSection('Referencias costo')}
+          />
+        ) : null}
+        {showKardexAuditoria ? (
+          <QuickActionCard
+            title="Kardex y auditoría"
+            description="Admin consulta movimientos de inventario y log de eventos."
+            badge={getModuleBadge('Kardex y auditoría')}
+            disabled={moduleAccess['Kardex y auditoría'] !== true}
+            onPress={() => handleOpenProtectedSection('Kardex y auditoría')}
           />
         ) : null}
         <QuickActionCard
