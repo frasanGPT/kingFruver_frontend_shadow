@@ -1,4 +1,4 @@
-import { apiGet, apiPost } from './apiClient';
+import { apiGet, apiPatch, apiPost } from './apiClient';
 
 function buildAuthHeaders(token) {
   const headers = {};
@@ -28,6 +28,16 @@ export async function getCompras({ token, estado, sedeId, proveedorId } = {}) {
 
 export async function createCompra({ compra, token }) {
   return apiPost('/api/compras', compra, {
+    headers: buildAuthHeaders(token),
+    timeoutMs: 20000,
+  });
+}
+
+export async function devolverCompra({ compraId, motivo, notas, token }) {
+  return apiPatch(`/api/compras/${compraId}/devolver`, {
+    motivo,
+    notas,
+  }, {
     headers: buildAuthHeaders(token),
     timeoutMs: 20000,
   });

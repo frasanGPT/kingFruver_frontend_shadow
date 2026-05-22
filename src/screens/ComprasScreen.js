@@ -11,7 +11,7 @@ import {
 import AppShell from '../components/AppShell';
 import StateNoticeCard from '../components/StateNoticeCard';
 import { getActiveEnvironment } from '../config/environments';
-import { createCompra, getCompras } from '../services/compraService';
+import { createCompra, devolverCompra, getCompras } from '../services/compraService';
 import { getInventarioDisponible } from '../services/inventarioService';
 import { getProveedores } from '../services/proveedorService';
 import { loadSession } from '../services/sessionService';
@@ -61,7 +61,7 @@ function parseDecimalInput(value) {
     return NaN;
   }
 
-  const raw = String(value).trim().replace(/\s/g, '');
+  const raw = String(value).trim().replace(/\s/g, '').replace(/[^\d,.-]/g, '');
 
   if (!raw) {
     return NaN;
@@ -545,8 +545,12 @@ export default function ComprasScreen({ onBack }) {
   const [compras, setCompras] = useState([]);
   const [proveedores, setProveedores] = useState([]);
   const [screenResult, setScreenResult] = useState('Carga compras reales desde el backend.');
+  const [createNotice, setCreateNotice] = useState('');
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [returningCompraId, setReturningCompraId] = useState('');
+  const [returnConfirmCompraId, setReturnConfirmCompraId] = useState('');
+  const [returnNotice, setReturnNotice] = useState({ compraId: '', message: '' });
 
   const [proveedorId, setProveedorId] = useState('');
   const [origenCompra, setOrigenCompra] = useState('EN_BODEGA');
@@ -567,6 +571,16 @@ export default function ComprasScreen({ onBack }) {
   const token = session && session.token ? session.token : '';
   const sedeId = getSedeIdFromSession(session);
   const canCreate = roleCode === 'admin';
+
+  function setCreateFeedback(message) {
+    setCreateNotice(message);
+    setScreenResult(message);
+  }
+
+  function clearNewProductConfirmation() {
+    setNewProductConfirmed(false);
+    setCreateNotice('');
+  }
 
   const proveedorSeleccionado = useMemo(() => {
     return proveedores.find((item) => item.id === proveedorId) || null;
@@ -703,14 +717,14 @@ export default function ComprasScreen({ onBack }) {
   function handleProductNameChange(value) {
     setProductoNombre(value);
     setSelectedExistingProduct(null);
-    setNewProductConfirmed(false);
+    clearNewProductConfirmation();
   }
 
   function handleUnidadCompraChange(value) {
     const canonicalUnit = normalizeUnitInput(value);
     setUnidadCompra(canonicalUnit);
     setSelectedExistingProduct(null);
-    setNewProductConfirmed(false);
+    clearNewProductConfirmation();
 
     if (presentacionCompra === 'unidad_base') {
       setUnidadContenido(canonicalUnit);
@@ -763,14 +777,18 @@ export default function ComprasScreen({ onBack }) {
     setProductoNombre(item.productoNombre);
     setUnidadCompra(item.unidadBase);
     setUnidadContenido(item.unidadBase);
-    setNewProductConfirmed(false);
+    clearNewProductConfirmation();
     setScreenResult('Producto existente seleccionado: ' + formatInventoryOption(item));
   }
 
   function handleConfirmNewProduct() {
+    const confirmedUnit = presentationPreview.valid
+      ? presentationPreview.unidadBaseInventario
+      : normalizeUnitInput(unidadCompra) || unidadCompra;
+    const message = 'Producto nuevo confirmado: ' + productoNombre.trim() + ' (' + confirmedUnit + '). Ya puedes registrar la compra.';
     setSelectedExistingProduct(null);
     setNewProductConfirmed(true);
-    setScreenResult('Producto nuevo confirmado: ' + productoNombre.trim() + ' (' + unidadCompra + ').');
+    setCreateFeedback(message);
   }
 
   function validateCreateForm() {
@@ -806,7 +824,7 @@ export default function ComprasScreen({ onBack }) {
       return 'Encontramos productos parecidos en inventario. Selecciona una coincidencia antes de registrar la compra.';
     }
     if (selectedExistingProduct === null && newProductConfirmed === false) {
-      return 'Confirma explícitamente que este producto es nuevo antes de registrar la compra.';
+      return 'Toca primero “Confirmo que es un producto nuevo”. Luego presiona Registrar compra.';
     }
     if (!Number.isFinite(cantidad) || cantidad <= 0) return 'La cantidad debe ser mayor a cero.';
     if (!Number.isFinite(costo) || costo <= 0) return 'El costo total debe ser mayor a cero.';
@@ -815,17 +833,89 @@ export default function ComprasScreen({ onBack }) {
     return '';
   }
 
+  async function handleDevolverCompra(compra) {
+    if (!canCreate) {
+      setScreenResult('Solo admin puede devolver compras.');
+      return;
+    }
+
+    if (!compra || !compra.id) {
+      setScreenResult('No se pudo identificar la compra a devolver.');
+      return;
+    }
+
+    if (compra.estado !== 'recibida') {
+      setScreenResult('Solo se pueden devolver compras recibidas.');
+      return;
+    }
+
+    if (returnConfirmCompraId !== compra.id) {
+      const message = [
+        'Confirma la devolución total de esta compra.',
+        `Compra: ${compra.id}`,
+        'Esta acción anula la compra, descuenta inventario, bloquea lotes y registra kardex.',
+        'Toca “Confirmar devolución total” para ejecutar.',
+      ].join('\n');
+
+      setReturnConfirmCompraId(compra.id);
+      setReturnNotice({ compraId: compra.id, message });
+      setScreenResult(message);
+      return;
+    }
+
+    const motivo = `Devolución desde app móvil - compra ${compra.id}`;
+    const notasDevolucion = 'Devolución total solicitada desde Compras.';
+
+    setReturningCompraId(compra.id);
+    setReturnConfirmCompraId('');
+    setReturnNotice({ compraId: compra.id, message: `Devolviendo compra ${compra.id}...` });
+    setScreenResult(`Devolviendo compra ${compra.id}...`);
+
+    try {
+      const response = await devolverCompra({
+        compraId: compra.id,
+        motivo,
+        notas: notasDevolucion,
+        token,
+      });
+
+      const data = response?.data || {};
+      const devolucion = response?.devolucion || {};
+
+      const successMessage = [
+        'Compra devuelta correctamente.',
+        `Compra: ${data?._id || compra.id}`,
+        `Estado: ${data?.estado || 'anulada'}`,
+        `Lotes actualizados: ${devolucion.lotesActualizados || 0}`,
+        `Inventarios actualizados: ${devolucion.inventariosActualizados || 0}`,
+        `Kardex creados: ${devolucion.kardexCreados || 0}`,
+      ].join('\n');
+
+      setReturnNotice({ compraId: compra.id, message: successMessage });
+      setScreenResult(successMessage);
+
+      await loadData();
+    } catch (error) {
+      const errorMessage = `Error al devolver compra: ${error.message}`;
+      setReturnNotice({ compraId: compra.id, message: errorMessage });
+      setScreenResult(errorMessage);
+    } finally {
+      setReturningCompraId('');
+      setReturnConfirmCompraId('');
+    }
+  }
+
   async function handleCreateCompra() {
     const validationError = validateCreateForm();
 
     if (validationError) {
-      setScreenResult(validationError);
+      setCreateFeedback(validationError);
       return;
     }
 
     try {
       setCreating(true);
-      setScreenResult('Registrando compra...');
+      setCreateFeedback('Registrando compra real...');
 
       const compra = {
         sedeId,
@@ -857,7 +947,7 @@ export default function ComprasScreen({ onBack }) {
       if (response && response.ok === true) {
         setProductoNombre('');
         setSelectedExistingProduct(null);
-        setNewProductConfirmed(false);
+        clearNewProductConfirmation();
         setPresentacionCompra('unidad_base');
         setContenidoPorPresentacion('1');
         setUnidadContenido('kg');
@@ -865,13 +955,15 @@ export default function ComprasScreen({ onBack }) {
         setCostoTotalItem('');
         setFlete('');
         setNotas('');
+        setCreateFeedback('Compra registrada correctamente. Recargando listado...');
         await loadData(token, 'Compra registrada correctamente.', session);
+        setCreateFeedback('Compra registrada correctamente. Revisa el listado y usa “Devolver compra” si aplica.');
         return;
       }
 
       throw new Error((response && (response.message || response.error)) || 'No se pudo registrar la compra.');
     } catch (error) {
-      setScreenResult('Error registrando compra: ' + error.message);
+      setCreateFeedback('Error registrando compra: ' + error.message);
     } finally {
       setCreating(false);
     }
@@ -992,7 +1084,7 @@ export default function ComprasScreen({ onBack }) {
               style={styles.secondaryButton}
               onPress={() => {
                 setSelectedExistingProduct(null);
-                setNewProductConfirmed(false);
+                clearNewProductConfirmation();
               }}
               disabled={!canCreate || creating}
             >
@@ -1046,20 +1138,27 @@ export default function ComprasScreen({ onBack }) {
         {selectedExistingProduct === null &&
         productoNombre.trim().length > 0 &&
         hasExistingProductSuggestions === false ? (
-          <Pressable
-            style={[
-              styles.secondaryButton,
-              newProductConfirmed ? styles.secondaryButtonActive : null,
-            ]}
-            onPress={handleConfirmNewProduct}
-            disabled={!canCreate || creating || exactExistingProductMatch !== null}
-          >
-            <Text style={styles.secondaryButtonText}>
+          <>
+            <Pressable
+              style={[
+                styles.secondaryButton,
+                newProductConfirmed ? styles.secondaryButtonActive : null,
+              ]}
+              onPress={handleConfirmNewProduct}
+              disabled={!canCreate || creating || exactExistingProductMatch !== null}
+            >
+              <Text style={styles.secondaryButtonText}>
+                {newProductConfirmed
+                  ? 'Producto nuevo confirmado'
+                  : 'Confirmo que es un producto nuevo'}
+              </Text>
+            </Pressable>
+            <Text style={styles.helperText}>
               {newProductConfirmed
-                ? 'Producto nuevo confirmado'
-                : 'Confirmo que es un producto nuevo'}
+                ? 'Confirmación recibida. Ya puedes registrar esta compra.'
+                : 'Este paso es obligatorio para crear productos nuevos y evitar duplicados.'}
             </Text>
-          </Pressable>
+          </>
         ) : null}
 
         <Text style={styles.label}>Unidad *</Text>
@@ -1230,9 +1329,21 @@ export default function ComprasScreen({ onBack }) {
           disabled={!canCreate || creating}
         >
           <Text style={styles.primaryButtonText}>
-            {creating ? 'Registrando...' : 'Registrar compra'}
+            {creating
+              ? 'Registrando...'
+              : selectedExistingProduct === null &&
+                  productoNombre.trim().length > 0 &&
+                  exactExistingProductMatch === null &&
+                  hasExistingProductSuggestions === false &&
+                  newProductConfirmed === false
+                ? 'Confirma producto nuevo primero'
+                : 'Registrar compra'}
           </Text>
         </Pressable>
+
+        {createNotice ? (
+          <Text style={styles.createNoticeText}>{createNotice}</Text>
+        ) : null}
       </View>
       ) : (
         <View style={styles.card}>
@@ -1273,6 +1384,30 @@ export default function ComprasScreen({ onBack }) {
                     : ''}
                 </Text>
               ))}
+
+              {canCreate && item.estado === 'recibida' ? (
+                <Pressable
+                  style={[
+                    styles.returnButton,
+                    returnConfirmCompraId === item.id ? styles.returnButtonConfirm : null,
+                    returningCompraId === item.id ? styles.disabledButton : null,
+                  ]}
+                  onPress={() => handleDevolverCompra(item)}
+                  disabled={returningCompraId === item.id || creating}
+                >
+                  <Text style={styles.returnButtonText}>
+                    {returningCompraId === item.id
+                      ? 'Devolviendo...'
+                      : returnConfirmCompraId === item.id
+                        ? 'Confirmar devolución total'
+                        : 'Devolver compra'}
+                  </Text>
+                </Pressable>
+              ) : null}
+
+              {returnNotice.compraId === item.id && returnNotice.message ? (
+                <Text style={styles.returnNoticeText}>{returnNotice.message}</Text>
+              ) : null}
             </View>
           ))}
         </ScrollView>
@@ -1530,6 +1665,37 @@ const styles = StyleSheet.create({
     color: '#111827',
     fontWeight: '800',
   },
+  returnButton: {
+    marginTop: 12,
+    borderRadius: 12,
+    backgroundColor: '#111827',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+  },
+  returnButtonConfirm: {
+    backgroundColor: '#b91c1c',
+  },
+  returnButtonText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  returnNoticeText: {
+    marginTop: 8,
+    color: '#374151',
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '700',
+  },
+  createNoticeText: {
+    marginTop: 10,
+    color: '#374151',
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '700',
+  },
+
   primaryButton: {
     backgroundColor: '#111827',
     borderRadius: 10,
