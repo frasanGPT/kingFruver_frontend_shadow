@@ -1,4 +1,4 @@
-import { apiGet, apiPost } from './apiClient';
+import { apiGet, apiPost, apiPatch } from './apiClient';
 
 export async function getVentas(filters = {}, token) {
   const headers = {};
@@ -48,5 +48,14 @@ export async function createVenta(payload, token) {
   return apiPost('/api/ventas', payload, {
     timeoutMs: 20000,
     headers,
+  });
+}
+
+export async function devolverVenta({ ventaId, motivo, notas, token }) {
+  return apiPatch(`/api/ventas/${ventaId}/devolver`, {
+    motivo,
+    notas,
+  }, {
+    token,
   });
 }

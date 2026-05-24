@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import AppShell from '../components/AppShell';
 import { cancelCarrito, createCarrito, getCarritos } from '../services/carritoService';
-import { createVenta } from '../services/ventaService';
+import { createVenta, devolverVenta } from '../services/ventaService';
 import { getInventarioDisponible } from '../services/inventarioService';
 import { loadSession, saveSession } from '../services/sessionService';
 import { getCajas } from '../services/cajaService';
@@ -198,6 +198,9 @@ export default function VentasScreen({ onBack }) {
   const [loadingCarritos, setLoadingCarritos] = useState(false);
   const [cancellingCarrito, setCancellingCarrito] = useState(false);
   const [motivoCancelacionCarrito, setMotivoCancelacionCarrito] = useState('');
+  const [returningVentaId, setReturningVentaId] = useState('');
+  const [returnConfirmVentaId, setReturnConfirmVentaId] = useState('');
+  const [returnVentaNotice, setReturnVentaNotice] = useState({ ventaId: '', message: '' });
   const [ventaResult, setVentaResult] = useState('Todavía no has intentado crear la venta real.');
   const [creatingVenta, setCreatingVenta] = useState(false);
   const [ventaCreadaId, setVentaCreadaId] = useState('');
@@ -930,6 +933,74 @@ export default function VentasScreen({ onBack }) {
     }
   }
 
+  async function handleDevolverVenta(venta) {
+    if (!session || !session.token) {
+      setVentasQueryResult('Primero valida acceso en Home para devolver ventas.');
+      return;
+    }
+
+    const ventaId = venta?._id || venta?.id;
+    if (!ventaId) {
+      setVentasQueryResult('No se pudo devolver: ventaId inválido.');
+      return;
+    }
+
+    if (venta?.estado && venta.estado !== 'completada') {
+      setVentasQueryResult('Solo se pueden devolver ventas completadas.');
+      return;
+    }
+
+    if (returnConfirmVentaId !== ventaId) {
+      const message = [
+        'Confirma la devolución total de esta venta.',
+        'Esta acción anula la venta y revierte inventario, caja y kardex según backend.',
+        'Toca “Confirmar devolución total” para ejecutar.',
+      ].join('\n');
+
+      setReturnConfirmVentaId(ventaId);
+      setReturnVentaNotice({ ventaId, message });
+      setVentasQueryResult(message);
+      return;
+    }
+
+    const motivo = `Devolución desde app móvil - venta ${ventaId}`;
+    const notas = 'Devolución total solicitada desde Ventas.';
+
+    setReturningVentaId(ventaId);
+    setReturnConfirmVentaId('');
+    setReturnVentaNotice({ ventaId, message: `Devolviendo venta ${ventaId}...` });
+    setVentasQueryResult(`Devolviendo venta ${ventaId}...`);
+
+    try {
+      const response = await devolverVenta({
+        ventaId,
+        motivo,
+        notas,
+        token: session.token,
+      });
+
+      const data = response?.data || response?.venta || response || {};
+      const devolucion = response?.devolucion || data?.devolucion || {};
+      const successMessage = [
+        'Venta devuelta correctamente.',
+        `Estado: ${data?.estado || 'anulada'}`,
+        `Inventarios actualizados: ${devolucion.inventariosActualizados || 0}`,
+        `Kardex creados: ${devolucion.kardexCreados || 0}`,
+      ].join('\n');
+
+      setReturnVentaNotice({ ventaId, message: successMessage });
+      setVentasQueryResult(successMessage);
+      await cargarVentas();
+    } catch (error) {
+      const errorMessage = `Error al devolver venta: ${error.message}`;
+      setReturnVentaNotice({ ventaId, message: errorMessage });
+      setVentasQueryResult(errorMessage);
+    } finally {
+      setReturningVentaId('');
+      setReturnConfirmVentaId('');
+    }
+  }
+
   async function handleCancelarCarritoActivo(carrito) {
     if (isCajero) {
       return;
@@ -1346,6 +1417,46 @@ export default function VentasScreen({ onBack }) {
                       >
                         <Text style={styles.cancelEditButtonText}>Cancelar carrito activo</Text>
                       </Pressable>
+                    ) : null}
+
+                    {!isCajero && carrito?.estado === 'completada' ? (
+                      <Pressable
+                        style={[
+                          styles.cancelEditButton,
+                          returningVentaId === carrito._id && styles.actionDisabledButton,
+                          returnConfirmVentaId === carrito._id && {
+                            backgroundColor: '#b91c1c',
+                          },
+                        ]}
+                        onPress={() => handleDevolverVenta(carrito)}
+                        disabled={returningVentaId === carrito._id}
+                      >
+                        <Text style={styles.cancelEditButtonText}>
+                          {returningVentaId === carrito._id
+                            ? 'Devolviendo venta...'
+                            : returnConfirmVentaId === carrito._id
+                              ? 'Confirmar devolución total'
+                              : 'Devolver venta'}
+                        </Text>
+                      </Pressable>
+                    ) : null}
+
+                    {returnVentaNotice?.ventaId === carrito?._id &&
+                    returnVentaNotice?.message ? (
+                      <Text
+                        style={[
+                          styles.suggestionMeta,
+                          {
+                            marginTop: 8,
+                            color:
+                              returnConfirmVentaId === carrito._id
+                                ? '#f59e0b'
+                                : '#dc2626',
+                          },
+                        ]}
+                      >
+                        {returnVentaNotice.message}
+                      </Text>
                     ) : null}
                   </Pressable>
                 );
