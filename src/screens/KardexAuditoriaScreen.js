@@ -28,6 +28,7 @@ function shortId(value) {
 function getMovimientoVariant(tipoMovimiento) {
   if (tipoMovimiento === 'ENTRADA_COMPRA') return 'success';
   if (tipoMovimiento === 'SALIDA_VENTA') return 'danger';
+  if (tipoMovimiento === 'ANULACION') return 'warning';
   return 'info';
 }
 
@@ -76,6 +77,10 @@ export default function KardexAuditoriaScreen({ onBack }) {
 
   const salidaVentaCount = useMemo(() => {
     return kardexRows.filter((row) => row.tipoMovimiento === 'SALIDA_VENTA').length;
+  }, [kardexRows]);
+
+  const anulacionCount = useMemo(() => {
+    return kardexRows.filter((row) => row.tipoMovimiento === 'ANULACION').length;
   }, [kardexRows]);
 
   const auditModules = useMemo(() => {
@@ -196,10 +201,14 @@ export default function KardexAuditoriaScreen({ onBack }) {
                 <Text style={styles.summaryChipLabel}>Salidas</Text>
                 <Text style={styles.summaryChipValue}>{salidaVentaCount}</Text>
               </View>
+              <View style={styles.summaryChip}>
+                <Text style={styles.summaryChipLabel}>Anulaciones</Text>
+                <Text style={styles.summaryChipValue}>{anulacionCount}</Text>
+              </View>
             </View>
 
             <View style={styles.filterRow}>
-              {['todos', 'ENTRADA_COMPRA', 'SALIDA_VENTA'].map((item) => (
+              {['todos', 'ENTRADA_COMPRA', 'SALIDA_VENTA', 'ANULACION'].map((item) => (
                 <Pressable
                   key={item}
                   style={[
