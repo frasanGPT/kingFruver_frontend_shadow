@@ -32,10 +32,25 @@ function getMovimientoVariant(tipoMovimiento) {
   return 'info';
 }
 
-function getAuditVariant(status) {
+function getAuditVariant(status, eventType) {
+  if (eventType === 'VENTAS.RETURN_SUCCESS') return 'warning';
+  if (eventType === 'VENTAS.RETURN_FAILED') return 'danger';
+
   if (status === 'success') return 'success';
   if (status === 'failed' || status === 'error') return 'danger';
   return 'info';
+}
+
+function getAuditTitle(eventType) {
+  if (eventType === 'VENTAS.RETURN_SUCCESS') {
+    return 'Devolución de venta completada';
+  }
+
+  if (eventType === 'VENTAS.RETURN_FAILED') {
+    return 'Error devolviendo venta';
+  }
+
+  return eventType || 'Evento sin tipo';
 }
 
 function formatQuantity(value, unit) {
@@ -294,10 +309,12 @@ export default function KardexAuditoriaScreen({ onBack }) {
             filteredAuditRows.slice(0, 25).map((row) => (
               <View key={row._id} style={styles.card}>
                 <View style={styles.cardHeaderRow}>
-                  <Text style={styles.cardTitle}>{row.eventType || 'Evento sin tipo'}</Text>
+                  <Text style={styles.cardTitle}>
+                    {getAuditTitle(row.eventType)}
+                  </Text>
                   <StatusBadge
                     label={row.status || 'sin estado'}
-                    variant={getAuditVariant(row.status)}
+                    variant={getAuditVariant(row.status, row.eventType)}
                   />
                 </View>
 
