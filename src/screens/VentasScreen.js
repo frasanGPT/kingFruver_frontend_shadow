@@ -934,50 +934,64 @@ export default function VentasScreen({ onBack }) {
   }
 
   async function handleDevolverVenta(venta) {
-    if (!session || !session.token) {
-      setVentasQueryResult('Primero valida acceso en Home para devolver ventas.');
+
+    const ventaId = venta?._id || venta?.id || '';
+
+
+    const activeToken = String(bearerToken || '').trim();
+
+
+    if (!activeToken) {
+      const message = 'Primero valida acceso en Home para devolver ventas.';
+      setReturnVentaNotice({ ventaId, message });
+      setVentaResult(message);
       return;
     }
 
-    const ventaId = venta?._id || venta?.id;
     if (!ventaId) {
-      setVentasQueryResult('No se pudo devolver: ventaId inválido.');
+      const message = 'No se pudo devolver: ventaId inválido.';
+      setReturnVentaNotice({ ventaId, message });
+      setVentaResult(message);
       return;
     }
 
-    if (venta?.estado && venta.estado !== 'completada') {
-      setVentasQueryResult('Solo se pueden devolver ventas completadas.');
+    const shouldSkipConfirm = Boolean(venta?.skipConfirm);
+
+    if (!shouldSkipConfirm && venta?.estado && venta.estado !== 'completada') {
+      const message = 'Solo se pueden devolver ventas completadas.';
+      setReturnVentaNotice({ ventaId, message });
+      setVentaResult(message);
       return;
     }
 
-    if (returnConfirmVentaId !== ventaId) {
+    if (!shouldSkipConfirm && returnConfirmVentaId !== ventaId) {
       const message = [
         'Confirma la devolución total de esta venta.',
         'Esta acción anula la venta y revierte inventario, caja y kardex según backend.',
         'Toca “Confirmar devolución total” para ejecutar.',
-      ].join('\n');
+      ].join('\\n');
 
       setReturnConfirmVentaId(ventaId);
       setReturnVentaNotice({ ventaId, message });
-      setVentasQueryResult(message);
+      setVentaResult(message);
       return;
     }
+
 
     const motivo = `Devolución desde app móvil - venta ${ventaId}`;
     const notas = 'Devolución total solicitada desde Ventas.';
 
-    setReturningVentaId(ventaId);
-    setReturnConfirmVentaId('');
-    setReturnVentaNotice({ ventaId, message: `Devolviendo venta ${ventaId}...` });
-    setVentasQueryResult(`Devolviendo venta ${ventaId}...`);
 
     try {
+
+
       const response = await devolverVenta({
         ventaId,
         motivo,
         notas,
-        token: session.token,
+        token: activeToken,
       });
+
 
       const data = response?.data || response?.venta || response || {};
       const devolucion = response?.devolucion || data?.devolucion || {};
@@ -986,15 +1000,14 @@ export default function VentasScreen({ onBack }) {
         `Estado: ${data?.estado || 'anulada'}`,
         `Inventarios actualizados: ${devolucion.inventariosActualizados || 0}`,
         `Kardex creados: ${devolucion.kardexCreados || 0}`,
-      ].join('\n');
+      ].join('\\n');
 
       setReturnVentaNotice({ ventaId, message: successMessage });
-      setVentasQueryResult(successMessage);
-      await cargarVentas();
+      setVentaResult(successMessage);
     } catch (error) {
       const errorMessage = `Error al devolver venta: ${error.message}`;
       setReturnVentaNotice({ ventaId, message: errorMessage });
-      setVentasQueryResult(errorMessage);
+      setVentaResult(errorMessage);
     } finally {
       setReturningVentaId('');
       setReturnConfirmVentaId('');
@@ -1667,6 +1680,51 @@ export default function VentasScreen({ onBack }) {
           <Text style={styles.successBannerText}>
             productos: {lastSaleSummary.productos.join(' | ')}
           </Text>
+
+          {!isCajero ? (
+            <Pressable
+              style={styles.deleteButton}
+              onPress={() => {
+                const ventaId = String(lastSaleSummary.ventaId || '');
+
+                if (returnConfirmVentaId !== ventaId) {
+                  const message = [
+                    'Confirma la devolución total de esta venta.',
+                    'Esta acción anula la venta y revierte inventario, caja y kardex según backend.',
+                    'Toca “Confirmar devolución total” para ejecutar.',
+                  ].join('\n');
+
+                  setReturnConfirmVentaId(ventaId);
+                  setReturnVentaNotice({ ventaId, message });
+                  setVentaResult(message);
+                  return;
+                }
+
+                setReturnVentaNotice({ ventaId, message: `Devolviendo venta ${ventaId}...` });
+                setVentaResult(`Devolviendo venta ${ventaId}...`);
+
+                handleDevolverVenta({
+                  _id: ventaId,
+                  estado: 'completada',
+                  skipConfirm: true,
+                });
+              }}
+            >
+              <Text style={styles.deleteButtonText}>
+                {returningVentaId === String(lastSaleSummary.ventaId || '')
+                  ? 'Devolviendo venta...'
+                  : returnConfirmVentaId === String(lastSaleSummary.ventaId || '')
+                    ? 'Confirmar devolución total'
+                    : 'Devolver venta'}
+              </Text>
+            </Pressable>
+          ) : null}
+
+          {returnVentaNotice?.message ? (
+            <Text style={styles.successBannerText}>
+              {returnVentaNotice.message}
+            </Text>
+          ) : null}
         </View>
       ) : null}
 

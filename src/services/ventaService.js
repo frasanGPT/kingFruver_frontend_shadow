@@ -52,10 +52,17 @@ export async function createVenta(payload, token) {
 }
 
 export async function devolverVenta({ ventaId, motivo, notas, token }) {
+  const headers = {};
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
   return apiPatch(`/api/ventas/${ventaId}/devolver`, {
     motivo,
     notas,
   }, {
-    token,
+    timeoutMs: 20000,
+    headers,
   });
 }
