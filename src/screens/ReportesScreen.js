@@ -132,6 +132,20 @@ export default function ReportesScreen({ onBack }) {
     return ventas.filter((venta) => venta.estado === 'completada').length;
   }, [ventas]);
 
+  const ventasAnuladas = useMemo(() => {
+    return ventas.filter((venta) => venta.estado === 'anulada').length;
+  }, [ventas]);
+
+  const totalVentasAnuladas = useMemo(() => {
+    return ventas
+      .filter((venta) => venta.estado === 'anulada')
+      .reduce((acc, venta) => acc + Number(venta.total || 0), 0);
+  }, [ventas]);
+
+  const totalVentasNetas = useMemo(() => {
+    return totalVentas - totalVentasAnuladas;
+  }, [totalVentas, totalVentasAnuladas]);
+
   const ventasPorMetodo = useMemo(() => {
     return {
       efectivo: ventas
@@ -274,12 +288,16 @@ export default function ReportesScreen({ onBack }) {
         });
       }
 
-      const limit = now.getTime() - 24 * 60 * 60 * 1000;
+      if (timeRange === '24h') {
+        const limit = now.getTime() - 24 * 60 * 60 * 1000;
 
-      return rows.filter((row) => {
-        const date = new Date(getDateValue(row) || 0);
-        return Number.isNaN(date.getTime()) === false && date.getTime() >= limit;
-      });
+        return rows.filter((row) => {
+          const date = new Date(getDateValue(row) || 0);
+          return Number.isNaN(date.getTime()) === false && date.getTime() >= limit;
+        });
+      }
+
+      return rows;
     }
 
     const ventasFiltradas = filterRows(ventasRows, (venta) => venta?.createdAt);
@@ -657,6 +675,18 @@ export default function ReportesScreen({ onBack }) {
         </View>
 
         <Text style={styles.totalText}>Total vendido: {formatCurrency(totalVentas)}</Text>
+
+        <Text style={styles.activityText}>
+          Ventas anuladas: {ventasAnuladas}
+        </Text>
+
+        <Text style={styles.activityText}>
+          Total reversado: {formatCurrency(totalVentasAnuladas)}
+        </Text>
+
+        <Text style={styles.activityText}>
+          Ventas netas: {formatCurrency(totalVentasNetas)}
+        </Text>
         <Text style={styles.activityText}>Última actividad: {ultimaActividad}</Text>
         <Text style={styles.activityText}>Carritos activos: {carritosActivos.length}</Text>
         <Text style={styles.activityText}>Carritos cobrables: {carritosCobrables.length}</Text>
