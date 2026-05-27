@@ -73,6 +73,12 @@ function getArqueoSemantic(diferencia) {
   };
 }
 
+function getVentaEstadoVariant(estado) {
+  if (estado === 'completada') return 'success';
+  if (estado === 'anulada') return 'warning';
+  return 'info';
+}
+
 function shortId(value) {
   const raw = String(value || '').trim();
   if (!raw) {
@@ -704,6 +710,11 @@ export default function ReportesScreen({ onBack }) {
           <Text style={styles.emptyText}>No hay ventas disponibles para el filtro actual.</Text>
         ) : (
           <>
+            <StatusBadge
+              label={ultimaVenta.estado || 'sin estado'}
+              variant={getVentaEstadoVariant(ultimaVenta.estado)}
+            />
+
             <Text style={styles.metricBlock}>
               Fecha: {formatDateTime(ultimaVenta.createdAt)}
             </Text>
@@ -762,6 +773,10 @@ export default function ReportesScreen({ onBack }) {
             const preparador = carrito?.usuarioId?.email || carrito?.usuarioId?.nombre || 'no disponible';
             return (
               <View key={venta._id} style={styles.detailListBox}>
+                <StatusBadge
+                  label={venta.estado || 'sin estado'}
+                  variant={getVentaEstadoVariant(venta.estado)}
+                />
                 <Text style={styles.metricBlock}>Fecha: {formatDateTime(venta.createdAt)}</Text>
                 <Text style={styles.metricBlock}>ventaId: {shortId(venta._id)}</Text>
                 <Text style={styles.metricBlock}>
