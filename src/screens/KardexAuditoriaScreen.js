@@ -67,6 +67,7 @@ export default function KardexAuditoriaScreen({ onBack }) {
   const [selectedTab, setSelectedTab] = useState('kardex');
   const [selectedMovimiento, setSelectedMovimiento] = useState('todos');
   const [selectedAuditModule, setSelectedAuditModule] = useState('todos');
+  const [selectedAuditStatus, setSelectedAuditStatus] = useState('todos');
 
   const activeEnvironment = getActiveEnvironment();
 
@@ -79,12 +80,26 @@ export default function KardexAuditoriaScreen({ onBack }) {
   }, [kardexRows, selectedMovimiento]);
 
   const filteredAuditRows = useMemo(() => {
-    if (selectedAuditModule === 'todos') {
-      return auditRows;
+    let rows = auditRows;
+
+    if (selectedAuditModule !== 'todos') {
+      rows = rows.filter((row) => row.module === selectedAuditModule);
     }
 
-    return auditRows.filter((row) => row.module === selectedAuditModule);
-  }, [auditRows, selectedAuditModule]);
+    if (selectedAuditStatus === 'success') {
+      rows = rows.filter((row) => String(row.status || '').toLowerCase() === 'success');
+    }
+
+    if (selectedAuditStatus === 'failed') {
+      rows = rows.filter((row) => String(row.status || '').toLowerCase() === 'failed' || String(row.status || '').toLowerCase() === 'error');
+    }
+
+    if (selectedAuditStatus === 'returns') {
+      rows = rows.filter((row) => ['VENTAS.RETURN_SUCCESS', 'VENTAS.RETURN_FAILED'].includes(row.eventType));
+    }
+
+    return rows;
+  }, [auditRows, selectedAuditModule, selectedAuditStatus]);
 
   const entradaCompraCount = useMemo(() => {
     return kardexRows.filter((row) => row.tipoMovimiento === 'ENTRADA_COMPRA').length;
@@ -298,6 +313,24 @@ export default function KardexAuditoriaScreen({ onBack }) {
                 </Pressable>
               ))}
             </View>
+
+            <View style={styles.filterRow}>
+              {['todos', 'success', 'failed', 'returns'].map((item) => (
+                <Pressable
+                  key={item}
+                  style={[
+                    styles.filterButton,
+                    selectedAuditStatus === item ? styles.filterButtonActive : null,
+                  ]}
+                  onPress={() => setSelectedAuditStatus(item)}
+                >
+                  <Text style={styles.filterButtonText}>{item}</Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <Text style={styles.metricBlock}>Eventos filtrados: {filteredAuditRows.length}</Text>
+            <Text style={styles.metricBlock}>Eventos visibles: {Math.min(filteredAuditRows.length, 10)}</Text>
           </View>
 
           {filteredAuditRows.length === 0 ? (
@@ -306,7 +339,7 @@ export default function KardexAuditoriaScreen({ onBack }) {
               description="No hay eventos de auditoría para el filtro actual."
             />
           ) : (
-            filteredAuditRows.slice(0, 25).map((row) => (
+            filteredAuditRows.slice(0, 10).map((row) => (
               <View key={row._id} style={styles.card}>
                 <View style={styles.cardHeaderRow}>
                   <Text style={styles.cardTitle}>
