@@ -750,6 +750,10 @@ export default function CajasScreen({ onBack }) {
                 Number(selectedCaja.saldoApertura || 0) + Number(selectedCaja.totalEfectivo || 0)
               )}
             </Text>
+            <Text style={styles.helperText}>
+              Nota: las devoluciones de ventas ya descuentan el método de pago correspondiente de la caja.
+              Si hubo reversos, estos totales muestran el saldo operativo neto.
+            </Text>
             <Text style={styles.cardText}>
               Abierta por: {getUserDisplayName(selectedCaja.openedByUsuarioId)}
             </Text>
@@ -836,6 +840,9 @@ export default function CajasScreen({ onBack }) {
               </Text>
               <Text style={styles.summaryLine}>
                 Otro actual: {formatCurrency(selectedCaja?.totalOtro || 0)}
+              </Text>
+              <Text style={styles.summaryHelperLine}>
+                Estos valores ya reflejan ventas menos devoluciones aplicadas por método de pago.
               </Text>
             </View>
 
@@ -1103,6 +1110,12 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     color: '#111827',
     marginBottom: 4,
+  },
+  summaryHelperLine: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: '#6b7280',
+    marginTop: 6,
   },
   arqueoPreviewBox: {
     width: '100%',
