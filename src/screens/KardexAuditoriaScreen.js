@@ -64,6 +64,8 @@ export default function KardexAuditoriaScreen({ onBack }) {
   const [sedeId, setSedeId] = useState('');
   const [kardexRows, setKardexRows] = useState([]);
   const [auditRows, setAuditRows] = useState([]);
+  const [auditPagination, setAuditPagination] = useState(null);
+  const [loadingMoreAudit, setLoadingMoreAudit] = useState(false);
   const [selectedTab, setSelectedTab] = useState('kardex');
   const [selectedMovimiento, setSelectedMovimiento] = useState('todos');
   const [selectedAuditModule, setSelectedAuditModule] = useState('todos');
@@ -129,6 +131,7 @@ export default function KardexAuditoriaScreen({ onBack }) {
         setSedeId('');
         setKardexRows([]);
         setAuditRows([]);
+        setAuditPagination(null);
         setScreenResult('No hay sesión guardada. Entra a Home, valida acceso y vuelve.');
         return;
       }
@@ -140,7 +143,7 @@ export default function KardexAuditoriaScreen({ onBack }) {
 
       const [kardexResponse, auditoriaResponse] = await Promise.all([
         getKardex({ token: session.token, sedeId: effectiveSedeId }),
-        getAuditoria({ token: session.token, limit: 100 }),
+        getAuditoria({ token: session.token, limit: 10, page: 1 }),
       ]);
 
       const nextKardexRows = Array.isArray(kardexResponse?.data) ? kardexResponse.data : [];
@@ -148,12 +151,14 @@ export default function KardexAuditoriaScreen({ onBack }) {
 
       setKardexRows(nextKardexRows);
       setAuditRows(nextAuditRows);
+      setAuditPagination(auditoriaResponse?.pagination || null);
       setScreenResult(
-        `Kardex: ${nextKardexRows.length}. Eventos de auditoría: ${nextAuditRows.length}.`
+        `Kardex: ${nextKardexRows.length}. Eventos de auditoría cargados: ${nextAuditRows.length}.`
       );
     } catch (error) {
       setKardexRows([]);
       setAuditRows([]);
+      setAuditPagination(null);
       setScreenResult(`Error: ${error.message}`);
     } finally {
       setLoading(false);
@@ -163,6 +168,27 @@ export default function KardexAuditoriaScreen({ onBack }) {
   useEffect(() => {
     loadData();
   }, []);
+
+  async function loadMoreAuditRows() {
+    if (loadingMoreAudit || !auditPagination?.hasNextPage || !token) {
+      return;
+    }
+
+    try {
+      setLoadingMoreAudit(true);
+      const nextPage = Number(auditPagination.page || 1) + 1;
+      const response = await getAuditoria({ token, limit: auditPagination.limit || 10, page: nextPage });
+      const nextRows = Array.isArray(response?.data) ? response.data : [];
+
+      setAuditRows((current) => [...current, ...nextRows]);
+      setAuditPagination(response?.pagination || null);
+    } catch (error) {
+      setScreenResult(`Error cargando más auditoría: ${error.message}`);
+    } finally {
+      setLoadingMoreAudit(false);
+    }
+  }
+
 
   return (
     <AppShell
@@ -288,6 +314,12 @@ export default function KardexAuditoriaScreen({ onBack }) {
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Resumen auditoría</Text>
             <Text style={styles.metricBlock}>Eventos cargados: {auditRows.length}</Text>
+            <Text style={styles.metricBlock}>
+              Página auditoría: {auditPagination?.page || 1} de {auditPagination?.totalPages || 1}
+            </Text>
+            <Text style={styles.metricBlock}>
+              Total backend filtrable: {auditPagination?.total ?? auditRows.length}
+            </Text>
 
             <View style={styles.filterRow}>
               <Pressable
@@ -330,7 +362,7 @@ export default function KardexAuditoriaScreen({ onBack }) {
             </View>
 
             <Text style={styles.metricBlock}>Eventos filtrados: {filteredAuditRows.length}</Text>
-            <Text style={styles.metricBlock}>Eventos visibles: {Math.min(filteredAuditRows.length, 10)}</Text>
+            <Text style={styles.metricBlock}>Eventos visibles: {filteredAuditRows.length}</Text>
           </View>
 
           {filteredAuditRows.length === 0 ? (
@@ -339,7 +371,7 @@ export default function KardexAuditoriaScreen({ onBack }) {
               description="No hay eventos de auditoría para el filtro actual."
             />
           ) : (
-            filteredAuditRows.slice(0, 10).map((row) => (
+            filteredAuditRows.map((row) => (
               <View key={row._id} style={styles.card}>
                 <View style={styles.cardHeaderRow}>
                   <Text style={styles.cardTitle}>
@@ -362,6 +394,18 @@ export default function KardexAuditoriaScreen({ onBack }) {
               </View>
             ))
           )}
+
+          {selectedTab === 'auditoria' && auditPagination?.hasNextPage ? (
+            <Pressable
+              style={[styles.button, loadingMoreAudit ? styles.buttonDisabled : null]}
+              onPress={loadMoreAuditRows}
+              disabled={loadingMoreAudit}
+            >
+              <Text style={styles.buttonText}>
+                {loadingMoreAudit ? 'Cargando más...' : 'Ver más eventos'}
+              </Text>
+            </Pressable>
+          ) : null}
         </>
       )}
 

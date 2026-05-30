@@ -17,6 +17,9 @@ export async function getAuditoria({
   module,
   actorEmail,
   limit,
+  page,
+  from,
+  to,
 } = {}) {
   const params = new URLSearchParams();
 
@@ -25,6 +28,9 @@ export async function getAuditoria({
   if (module) params.set('module', module);
   if (actorEmail) params.set('actorEmail', actorEmail);
   if (limit) params.set('limit', String(limit));
+  if (page) params.set('page', String(page));
+  if (from) params.set('from', from);
+  if (to) params.set('to', to);
 
   const query = params.toString();
   const path = query ? `/api/auditoria?${query}` : '/api/auditoria';
