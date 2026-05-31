@@ -57,6 +57,28 @@ function formatQuantity(value, unit) {
   return `${Number(value || 0).toLocaleString('es-CO')} ${unit || ''}`.trim();
 }
 
+function buildAuditBackendFilters(moduleFilter, statusFilter) {
+  const filters = {};
+
+  if (moduleFilter && moduleFilter !== 'todos' && statusFilter !== 'returns') {
+    filters.module = moduleFilter;
+  }
+
+  if (statusFilter === 'success') {
+    filters.status = 'SUCCESS';
+  }
+
+  if (statusFilter === 'failed') {
+    filters.status = 'FAILED';
+  }
+
+  if (statusFilter === 'returns') {
+    filters.eventTypes = ['VENTAS.RETURN_SUCCESS', 'VENTAS.RETURN_FAILED'];
+  }
+
+  return filters;
+}
+
 export default function KardexAuditoriaScreen({ onBack }) {
   const [loading, setLoading] = useState(true);
   const [screenResult, setScreenResult] = useState('Cargando kardex y auditoría...');
@@ -82,26 +104,8 @@ export default function KardexAuditoriaScreen({ onBack }) {
   }, [kardexRows, selectedMovimiento]);
 
   const filteredAuditRows = useMemo(() => {
-    let rows = auditRows;
-
-    if (selectedAuditModule !== 'todos') {
-      rows = rows.filter((row) => row.module === selectedAuditModule);
-    }
-
-    if (selectedAuditStatus === 'success') {
-      rows = rows.filter((row) => String(row.status || '').toLowerCase() === 'success');
-    }
-
-    if (selectedAuditStatus === 'failed') {
-      rows = rows.filter((row) => String(row.status || '').toLowerCase() === 'failed' || String(row.status || '').toLowerCase() === 'error');
-    }
-
-    if (selectedAuditStatus === 'returns') {
-      rows = rows.filter((row) => ['VENTAS.RETURN_SUCCESS', 'VENTAS.RETURN_FAILED'].includes(row.eventType));
-    }
-
-    return rows;
-  }, [auditRows, selectedAuditModule, selectedAuditStatus]);
+    return auditRows;
+  }, [auditRows]);
 
   const entradaCompraCount = useMemo(() => {
     return kardexRows.filter((row) => row.tipoMovimiento === 'ENTRADA_COMPRA').length;
@@ -119,7 +123,7 @@ export default function KardexAuditoriaScreen({ onBack }) {
     return Array.from(new Set(auditRows.map((row) => row.module).filter(Boolean))).sort();
   }, [auditRows]);
 
-  async function loadData() {
+  async function loadData(nextFilters = {}) {
     try {
       setLoading(true);
       setScreenResult(`Cargando información desde ${activeEnvironment.copy.backendLabel}...`);
@@ -137,13 +141,20 @@ export default function KardexAuditoriaScreen({ onBack }) {
       }
 
       const effectiveSedeId = session.sedeId || activeEnvironment.defaultSedeId || '';
+      const effectiveAuditModule = Object.prototype.hasOwnProperty.call(nextFilters, 'selectedAuditModule')
+        ? nextFilters.selectedAuditModule
+        : selectedAuditModule;
+      const effectiveAuditStatus = Object.prototype.hasOwnProperty.call(nextFilters, 'selectedAuditStatus')
+        ? nextFilters.selectedAuditStatus
+        : selectedAuditStatus;
+      const auditBackendFilters = buildAuditBackendFilters(effectiveAuditModule, effectiveAuditStatus);
 
       setToken(session.token);
       setSedeId(effectiveSedeId);
 
       const [kardexResponse, auditoriaResponse] = await Promise.all([
         getKardex({ token: session.token, sedeId: effectiveSedeId }),
-        getAuditoria({ token: session.token, limit: 10, page: 1 }),
+        getAuditoria({ token: session.token, limit: 10, page: 1, ...auditBackendFilters }),
       ]);
 
       const nextKardexRows = Array.isArray(kardexResponse?.data) ? kardexResponse.data : [];
@@ -177,7 +188,13 @@ export default function KardexAuditoriaScreen({ onBack }) {
     try {
       setLoadingMoreAudit(true);
       const nextPage = Number(auditPagination.page || 1) + 1;
-      const response = await getAuditoria({ token, limit: auditPagination.limit || 10, page: nextPage });
+      const auditBackendFilters = buildAuditBackendFilters(selectedAuditModule, selectedAuditStatus);
+      const response = await getAuditoria({
+        token,
+        limit: auditPagination.limit || 10,
+        page: nextPage,
+        ...auditBackendFilters,
+      });
       const nextRows = Array.isArray(response?.data) ? response.data : [];
 
       setAuditRows((current) => [...current, ...nextRows]);
@@ -339,7 +356,10 @@ export default function KardexAuditoriaScreen({ onBack }) {
                     styles.filterButton,
                     selectedAuditModule === item ? styles.filterButtonActive : null,
                   ]}
-                  onPress={() => setSelectedAuditModule(item)}
+                  onPress={() => {
+                    setSelectedAuditModule(item);
+                    loadData({ selectedAuditModule: item });
+                  }}
                 >
                   <Text style={styles.filterButtonText}>{item}</Text>
                 </Pressable>
@@ -354,7 +374,17 @@ export default function KardexAuditoriaScreen({ onBack }) {
                     styles.filterButton,
                     selectedAuditStatus === item ? styles.filterButtonActive : null,
                   ]}
-                  onPress={() => setSelectedAuditStatus(item)}
+                  onPress={() => {
+                    setSelectedAuditStatus(item);
+
+                    if (item === 'returns') {
+                      setSelectedAuditModule('todos');
+                      loadData({ selectedAuditStatus: item, selectedAuditModule: 'todos' });
+                      return;
+                    }
+
+                    loadData({ selectedAuditStatus: item });
+                  }}
                 >
                   <Text style={styles.filterButtonText}>{item}</Text>
                 </Pressable>

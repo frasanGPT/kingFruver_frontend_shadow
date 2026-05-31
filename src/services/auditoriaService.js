@@ -13,6 +13,7 @@ function buildAuthHeaders(token) {
 export async function getAuditoria({
   token,
   eventType,
+  eventTypes,
   status,
   module,
   actorEmail,
@@ -24,6 +25,7 @@ export async function getAuditoria({
   const params = new URLSearchParams();
 
   if (eventType) params.set('eventType', eventType);
+  if (eventTypes) params.set('eventTypes', Array.isArray(eventTypes) ? eventTypes.join(',') : String(eventTypes));
   if (status) params.set('status', status);
   if (module) params.set('module', module);
   if (actorEmail) params.set('actorEmail', actorEmail);
