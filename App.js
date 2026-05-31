@@ -130,5 +130,5 @@ return (
 );
 }
 
-return <HomeScreen onOpenSection={handleOpenSection} />;
+return <HomeScreen onOpenSection={handleOpenSection} sessionExpired={route.params?.sessionExpired === true} />;
 }

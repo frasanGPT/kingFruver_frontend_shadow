@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import AppShell from '../components/AppShell';
 import HealthStatusCard from '../components/HealthStatusCard';
 import LoginAccessCard from '../components/LoginAccessCard';
+import StateNoticeCard from '../components/StateNoticeCard';
 import QuickActionCard from '../components/QuickActionCard';
 import { getHealth } from '../services/healthService';
 import { loadSession } from '../services/sessionService';
@@ -22,7 +23,7 @@ function buildHealthText(data) {
   ].join('\n');
 }
 
-export default function HomeScreen({ onOpenSection }) {
+export default function HomeScreen({ onOpenSection, sessionExpired = false }) {
   const [activeEnvironment, setActiveEnvironment] = useState(getActiveEnvironment());
   const [loading, setLoading] = useState(false);
   const [loadingSession, setLoadingSession] = useState(true);
@@ -140,6 +141,13 @@ export default function HomeScreen({ onOpenSection }) {
         onSessionChange={handleSessionChange}
         onEnvironmentChange={handleEnvironmentChange}
       />
+
+      {sessionExpired ? (
+        <StateNoticeCard
+          title="Sesión expirada"
+          description="Su sesión expiró. Inicie sesión nuevamente."
+        />
+      ) : null}
 
       <View style={styles.grid}>
         <QuickActionCard
