@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import HomeScreen from './src/screens/HomeScreen';
 import SectionPlaceholderScreen from './src/screens/SectionPlaceholderScreen';
 import VentasScreen from './src/screens/VentasScreen';
@@ -11,6 +11,7 @@ import ProveedoresScreen from './src/screens/ProveedoresScreen';
 import ComprasScreen from './src/screens/ComprasScreen';
 import ReferenciasCostoScreen from './src/screens/ReferenciasCostoScreen';
 import KardexAuditoriaScreen from './src/screens/KardexAuditoriaScreen';
+import { subscribeToSessionExpired } from './src/services/sessionEvents';
 
 export default function App() {
 const [route, setRoute] = useState({ name: 'home', params: null });
@@ -74,6 +75,14 @@ setRoute({
 function handleBackToHome() {
 setRoute({ name: 'home', params: null });
 }
+
+useEffect(() => {
+const unsubscribe = subscribeToSessionExpired(() => {
+  setRoute({ name: 'home', params: { sessionExpired: true } });
+});
+
+return unsubscribe;
+}, []);
 
 if (route.name === 'ventas') {
 return <VentasScreen onBack={handleBackToHome} />;

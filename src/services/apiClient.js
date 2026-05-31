@@ -1,5 +1,6 @@
 import { getApiBaseUrl } from '../config/api';
 import { clearSession } from './sessionService';
+import { notifySessionExpired } from './sessionEvents';
 
 const DEFAULT_TIMEOUT_MS = 10000;
 
@@ -47,6 +48,7 @@ async function parseJsonResponse(response, path, method) {
 
     if (sessionExpired) {
       await clearSession();
+      notifySessionExpired();
       throw new Error('Su sesión expiró. Inicie sesión nuevamente.');
     }
 
