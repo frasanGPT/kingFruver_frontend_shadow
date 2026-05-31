@@ -1,4 +1,5 @@
 import { getApiBaseUrl } from '../config/api';
+import { clearSession } from './sessionService';
 
 const DEFAULT_TIMEOUT_MS = 10000;
 
@@ -33,6 +34,22 @@ async function parseJsonResponse(response, path, method) {
   if (!response.ok) {
     const backendMessage =
       data?.message || data?.error || `${method} ${path} failed with status ${response.status}`;
+
+    const normalizedMessage = String(backendMessage).toLowerCase();
+
+    const sessionExpired =
+      response.status === 401 ||
+      normalizedMessage.includes('auth_required') ||
+      normalizedMessage.includes('token_invalid') ||
+      normalizedMessage.includes('token_expired') ||
+      normalizedMessage.includes('jwt expired') ||
+      normalizedMessage.includes('invalid token');
+
+    if (sessionExpired) {
+      await clearSession();
+      throw new Error('Su sesión expiró. Inicie sesión nuevamente.');
+    }
+
     throw new Error(backendMessage);
   }
 
