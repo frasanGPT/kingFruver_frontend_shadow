@@ -205,6 +205,7 @@ export default function VentasScreen({ onBack }) {
   const [returnMode, setReturnMode] = useState('total');
   const [partialReturnVentaId, setPartialReturnVentaId] = useState('');
   const [partialReturnItems, setPartialReturnItems] = useState([]);
+  const [partialReturnSubmittingVentaId, setPartialReturnSubmittingVentaId] = useState('');
   const [ventasRecientes, setVentasRecientes] = useState([]);
   const [loadingVentasRecientes, setLoadingVentasRecientes] = useState(false);
   const [ventasRecientesNotice, setVentasRecientesNotice] = useState('');
@@ -1066,6 +1067,123 @@ export default function VentasScreen({ onBack }) {
     }, 0);
   }
 
+  function getSelectedPartialReturnItems() {
+    return partialReturnItems
+      .map((item) => {
+        const cantidad = Number(item?.cantidadSeleccionada || 0);
+        const pendiente = Number(item?.pendiente || 0);
+
+        return {
+          productoNombre: item?.productoNombre || '',
+          unidadVenta: item?.unidadVenta || '',
+          cantidad,
+          pendiente,
+        };
+      })
+      .filter((item) => item.cantidad > 0 && item.cantidad <= item.pendiente);
+  }
+
+  async function handleConfirmDevolucionParcial(venta) {
+    const ventaId = venta?._id || venta?.id || partialReturnVentaId || '';
+    const activeToken = String(bearerToken || '').trim();
+
+    if (!activeToken) {
+      const message = 'Primero valida acceso en Home para confirmar devolución parcial.';
+      setReturnVentaNotice({ ventaId, message });
+      setVentaResult(message);
+      return;
+    }
+
+    if (!ventaId) {
+      const message = 'No se pudo devolver parcialmente: ventaId inválido.';
+      setReturnVentaNotice({ ventaId, message });
+      setVentaResult(message);
+      return;
+    }
+
+    const selectedItems = getSelectedPartialReturnItems();
+
+    if (selectedItems.length === 0) {
+      const message = 'Selecciona al menos un ítem con cantidad válida para devolver.';
+      setReturnVentaNotice({ ventaId, message });
+      setVentaResult(message);
+      return;
+    }
+
+    const hasInvalidItem = partialReturnItems.some((item) => {
+      const cantidad = Number(item?.cantidadSeleccionada || 0);
+      const pendiente = Number(item?.pendiente || 0);
+
+      return cantidad < 0 || cantidad > pendiente;
+    });
+
+    if (hasInvalidItem) {
+      const message = 'Hay cantidades inválidas. Revisa que ninguna supere el pendiente.';
+      setReturnVentaNotice({ ventaId, message });
+      setVentaResult(message);
+      return;
+    }
+
+    const motivo = `Devolución parcial desde app móvil - venta ${ventaId}`;
+    const notas = 'Devolución parcial solicitada desde Ventas.';
+
+    try {
+      setPartialReturnSubmittingVentaId(ventaId);
+      setReturnVentaNotice({ ventaId, message: 'Confirmando devolución parcial...' });
+      setVentaResult('Confirmando devolución parcial...');
+
+      const response = await devolverVentaParcial({
+        ventaId,
+        motivo,
+        notas,
+        items: selectedItems.map((item) => ({
+          productoNombre: item.productoNombre,
+          unidadVenta: item.unidadVenta,
+          cantidad: item.cantidad,
+        })),
+        token: activeToken,
+      });
+
+      const data = response?.data || response?.venta || {};
+      const devolucion = response?.devolucion || data?.devolucion || {};
+      const updatedItems = buildPartialReturnItems(data);
+
+      if (updatedItems.length > 0) {
+        setPartialReturnItems(updatedItems);
+      }
+
+      setVentasRecientes((current) =>
+        current.map((ventaReciente) =>
+          String(ventaReciente?._id || ventaReciente?.id || '') === ventaId
+            ? {
+                ...ventaReciente,
+                estado: data?.estado || ventaReciente?.estado,
+                items: Array.isArray(data?.items) ? data.items : ventaReciente?.items,
+              }
+            : ventaReciente
+        )
+      );
+
+      const successMessage = [
+        'Devolución parcial registrada correctamente.',
+        `Estado: ${data?.estado || 'parcialmente_devuelta'}`,
+        `Total reversado: ${formatCurrency(devolucion.totalReversado || 0)}`,
+        `Items devueltos: ${Array.isArray(devolucion.itemsDevueltos) ? devolucion.itemsDevueltos.length : selectedItems.length}`,
+        `Inventarios actualizados: ${devolucion.inventariosActualizados || 0}`,
+        `Kardex creados: ${devolucion.kardexCreados || 0}`,
+      ].join('\n');
+
+      setReturnVentaNotice({ ventaId, message: successMessage });
+      setVentaResult(successMessage);
+    } catch (error) {
+      const message = `Error al confirmar devolución parcial: ${error.message}`;
+      setReturnVentaNotice({ ventaId, message });
+      setVentaResult(message);
+    } finally {
+      setPartialReturnSubmittingVentaId('');
+    }
+  }
+
   async function handleLoadVentaDetalle(venta) {
     const ventaId = venta?._id || venta?.id || '';
 
@@ -1870,6 +1988,21 @@ export default function VentasScreen({ onBack }) {
                       <Text style={styles.suggestionMeta}>
                         Total parcial estimado: {formatCurrency(getPartialReturnTotal())}
                       </Text>
+
+                      <Pressable
+                        style={[
+                          styles.deleteButton,
+                          partialReturnSubmittingVentaId === ventaId ? styles.buttonDisabled : null,
+                        ]}
+                        disabled={partialReturnSubmittingVentaId === ventaId}
+                        onPress={() => handleConfirmDevolucionParcial(venta)}
+                      >
+                        <Text style={styles.returnWarning}>
+                          {partialReturnSubmittingVentaId === ventaId
+                            ? 'Confirmando devolución parcial...'
+                            : 'Confirmar devolución parcial'}
+                        </Text>
+                      </Pressable>
                     </View>
                   ) : null}
 
