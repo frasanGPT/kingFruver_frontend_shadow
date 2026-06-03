@@ -1,5 +1,15 @@
 import { apiGet, apiPost, apiPatch } from './apiClient';
 
+function buildAuthHeaders(token) {
+  const headers = {};
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  return headers;
+}
+
 export async function getVentas(filters = {}, token) {
   const headers = {};
 
@@ -64,5 +74,25 @@ export async function devolverVenta({ ventaId, motivo, notas, token }) {
   }, {
     timeoutMs: 20000,
     headers,
+  });
+}
+
+export async function devolverVentaParcial({ ventaId, motivo, notas, items, token }) {
+  const payload = {
+    motivo,
+    notas,
+    items,
+  };
+
+  return apiPatch(`/api/ventas/${ventaId}/devolver-parcial`, payload, {
+    headers: buildAuthHeaders(token),
+    timeoutMs: 20000,
+  });
+}
+
+export async function getVentaDetalle({ ventaId, token }) {
+  return apiGet(`/api/ventas/${ventaId}`, {
+    headers: buildAuthHeaders(token),
+    timeoutMs: 15000,
   });
 }

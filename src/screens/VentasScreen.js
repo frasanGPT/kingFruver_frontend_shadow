@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import AppShell from '../components/AppShell';
 import { cancelCarrito, createCarrito, getCarritos } from '../services/carritoService';
-import { createVenta, devolverVenta } from '../services/ventaService';
+import { createVenta, devolverVenta, devolverVentaParcial, getVentaDetalle, getVentas } from '../services/ventaService';
 import { getInventarioDisponible } from '../services/inventarioService';
 import { loadSession, saveSession } from '../services/sessionService';
 import { getCajas } from '../services/cajaService';
@@ -201,6 +201,13 @@ export default function VentasScreen({ onBack }) {
   const [returningVentaId, setReturningVentaId] = useState('');
   const [returnConfirmVentaId, setReturnConfirmVentaId] = useState('');
   const [returnVentaNotice, setReturnVentaNotice] = useState({ ventaId: '', message: '' });
+
+  const [returnMode, setReturnMode] = useState('total');
+  const [partialReturnVentaId, setPartialReturnVentaId] = useState('');
+  const [partialReturnItems, setPartialReturnItems] = useState([]);
+  const [ventasRecientes, setVentasRecientes] = useState([]);
+  const [loadingVentasRecientes, setLoadingVentasRecientes] = useState(false);
+  const [ventasRecientesNotice, setVentasRecientesNotice] = useState('');
   const [ventaResult, setVentaResult] = useState('Todavía no has intentado crear la venta real.');
   const [creatingVenta, setCreatingVenta] = useState(false);
   const [ventaCreadaId, setVentaCreadaId] = useState('');
@@ -933,6 +940,174 @@ export default function VentasScreen({ onBack }) {
     }
   }
 
+  async function handleLoadVentasRecientes() {
+    const activeToken = String(bearerToken || '').trim();
+
+    if (!activeToken) {
+      const message = 'Primero valida acceso en Home para cargar ventas recientes.';
+      setVentasRecientesNotice(message);
+      setVentaResult(message);
+      return;
+    }
+
+    try {
+      setLoadingVentasRecientes(true);
+      setVentasRecientesNotice('Cargando ventas recientes...');
+
+      const response = await getVentas({}, activeToken);
+      const rows = Array.isArray(response?.data) ? response.data : [];
+
+      const visibles = rows
+        .filter((venta) => ['completada', 'parcialmente_devuelta'].includes(venta?.estado))
+        .sort((a, b) => {
+          const aItems = Array.isArray(a?.items) ? a.items.length : 0;
+          const bItems = Array.isArray(b?.items) ? b.items.length : 0;
+          return bItems - aItems;
+        });
+
+      setVentasRecientes(visibles.slice(0, 10));
+
+      const multiItemCount = visibles.filter((venta) => Array.isArray(venta?.items) && venta.items.length > 1).length;
+      const message = `Ventas recientes cargadas: ${visibles.slice(0, 10).length} | Multi-ítem: ${multiItemCount}`;
+      setVentasRecientesNotice(message);
+      setVentaResult(message);
+    } catch (error) {
+      const message = `Error cargando ventas recientes: ${error.message}`;
+      setVentasRecientesNotice(message);
+      setVentaResult(message);
+    } finally {
+      setLoadingVentasRecientes(false);
+    }
+  }
+
+  function buildPartialReturnItems(ventaDetalle) {
+    const items = Array.isArray(ventaDetalle?.items) ? ventaDetalle.items : [];
+
+    return items.map((item) => {
+      const cantidad = Number(item?.cantidad || 0);
+      const cantidadDevuelta = Number(item?.cantidadDevuelta || 0);
+      const pendiente = Math.max(cantidad - cantidadDevuelta, 0);
+
+      return {
+        productoNombre: item?.productoNombre || '',
+        unidadVenta: item?.unidadVenta || '',
+        cantidad,
+        cantidadDevuelta,
+        pendiente,
+        precioUnitario: Number(item?.precioUnitario || 0),
+        cantidadSeleccionada: 0,
+      };
+    });
+  }
+
+  function normalizePartialReturnQuantityInput(value, pendiente) {
+    const rawValue = String(value || '').replace(',', '.').trim();
+
+    if (!rawValue) {
+      return '';
+    }
+
+    if (rawValue === '-' || rawValue.includes('-')) {
+      return '';
+    }
+
+    if (!/^\d*\.?\d*$/.test(rawValue)) {
+      return '';
+    }
+
+    const numericValue = Number(rawValue);
+    const maxValue = Number(pendiente || 0);
+
+    if (!Number.isFinite(numericValue)) {
+      return '';
+    }
+
+    if (numericValue < 0) {
+      return '';
+    }
+
+    if (numericValue > maxValue) {
+      return String(maxValue);
+    }
+
+    return rawValue;
+  }
+
+  function handlePartialReturnQuantityChange(index, value) {
+    setPartialReturnItems((current) =>
+      current.map((item, itemIndex) => {
+        if (itemIndex !== index) {
+          return item;
+        }
+
+        return {
+          ...item,
+          cantidadSeleccionada: normalizePartialReturnQuantityInput(value, item?.pendiente),
+        };
+      })
+    );
+  }
+
+  function getPartialReturnTotal() {
+    return partialReturnItems.reduce((total, item) => {
+      const cantidadSeleccionada = Number(item?.cantidadSeleccionada || 0);
+      const precioUnitario = Number(item?.precioUnitario || 0);
+      const pendiente = Number(item?.pendiente || 0);
+
+      if (
+        !Number.isFinite(cantidadSeleccionada) ||
+        cantidadSeleccionada <= 0 ||
+        cantidadSeleccionada > pendiente
+      ) {
+        return total;
+      }
+
+      return total + cantidadSeleccionada * precioUnitario;
+    }, 0);
+  }
+
+  async function handleLoadVentaDetalle(venta) {
+    const ventaId = venta?._id || venta?.id || '';
+
+    const activeToken = String(bearerToken || '').trim();
+
+    if (!activeToken) {
+      const message = 'Primero valida acceso en Home para preparar devolución parcial.';
+      setReturnVentaNotice({ ventaId, message });
+      setVentaResult(message);
+      return;
+    }
+
+    if (!ventaId) {
+      const message = 'No se pudo cargar detalle: ventaId inválido.';
+      setReturnVentaNotice({ ventaId, message });
+      setVentaResult(message);
+      return;
+    }
+
+    try {
+      const response = await getVentaDetalle({ ventaId, token: activeToken });
+      const data = response?.data || response?.venta || response || {};
+      const detalleItems = buildPartialReturnItems(data);
+
+      setPartialReturnVentaId(ventaId);
+      setPartialReturnItems(detalleItems);
+      setReturnMode('parcial');
+
+      const message = [
+        'Detalle de venta cargado para devolución parcial.',
+        `Items disponibles: ${detalleItems.length}`,
+      ].join('\n');
+
+      setReturnVentaNotice({ ventaId, message });
+      setVentaResult(message);
+    } catch (error) {
+      const message = `Error cargando detalle de venta: ${error.message}`;
+      setReturnVentaNotice({ ventaId, message });
+      setVentaResult(message);
+    }
+  }
+
   async function handleDevolverVenta(venta) {
 
     const ventaId = venta?._id || venta?.id || '';
@@ -1454,6 +1629,23 @@ export default function VentasScreen({ onBack }) {
                       </Pressable>
                     ) : null}
 
+                    {returnConfirmVentaId === carrito._id ? (
+                      <Pressable
+                        style={styles.cancelEditButton}
+                        onPress={() => handleLoadVentaDetalle(carrito)}
+                      >
+                        <Text style={styles.cancelEditButtonText}>
+                          Preparar devolución parcial
+                        </Text>
+                      </Pressable>
+                    ) : null}
+
+                    {partialReturnVentaId === carrito._id && partialReturnItems.length > 0 ? (
+                      <Text style={styles.suggestionMeta}>
+                        Items cargados para devolución parcial: {partialReturnItems.length}
+                      </Text>
+                    ) : null}
+
                     {returnVentaNotice?.ventaId === carrito?._id &&
                     returnVentaNotice?.message ? (
                       <Text
@@ -1552,6 +1744,144 @@ export default function VentasScreen({ onBack }) {
 
         {ventaCreadaId ? (
           <Text style={styles.successText}>ventaId creada: {ventaCreadaId}</Text>
+        ) : null}
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Ventas recientes</Text>
+        <Text style={styles.cardText}>
+          Carga ventas completadas o parcialmente devueltas para preparar una devolución parcial.
+        </Text>
+
+        <Pressable
+          style={[
+            styles.queryButton,
+            loadingVentasRecientes ? styles.buttonDisabled : null,
+          ]}
+          disabled={loadingVentasRecientes}
+          onPress={handleLoadVentasRecientes}
+        >
+          <Text style={styles.queryButtonText}>
+            {loadingVentasRecientes ? 'Cargando ventas...' : 'Cargar ventas recientes'}
+          </Text>
+        </Pressable>
+
+        {loadingVentasRecientes ? <ActivityIndicator size="large" style={styles.loader} /> : null}
+
+        {ventasRecientesNotice ? (
+          <Text style={styles.suggestionMeta}>{ventasRecientesNotice}</Text>
+        ) : null}
+
+        {ventasRecientes.length > 0 ? (
+          <View style={styles.suggestionsBox}>
+            {ventasRecientes.map((venta) => {
+              const ventaId = String(venta?._id || venta?.id || '');
+              const estadoVenta = venta?.estado || 'sin estado';
+              const totalVentaReciente = Number(venta?.total || 0);
+              const itemsVenta = Array.isArray(venta?.items) ? venta.items : [];
+              const isPartialCandidate = itemsVenta.length > 1;
+
+              return (
+                <View key={ventaId} style={styles.suggestionItem}>
+                  <Text style={styles.suggestionTitle}>
+                    Venta #{getShortId(ventaId)}
+                  </Text>
+                  <Text style={styles.suggestionMeta}>
+                    Estado: {estadoVenta} | Total: {formatCurrency(totalVentaReciente)}
+                  </Text>
+                  <Text style={styles.suggestionMeta}>
+                    Items: {itemsVenta.length}
+                  </Text>
+
+                  {isPartialCandidate ? (
+                    <Pressable
+                      style={styles.cancelEditButton}
+                      onPress={() => handleLoadVentaDetalle(venta)}
+                    >
+                      <Text style={styles.cancelEditButtonText}>
+                        Preparar devolución parcial
+                      </Text>
+                    </Pressable>
+                  ) : (
+                    <Pressable
+                      style={[
+                        styles.deleteButton,
+                        returningVentaId === ventaId ? styles.buttonDisabled : null,
+                      ]}
+                      disabled={returningVentaId === ventaId}
+                      onPress={() => handleDevolverVenta(venta)}
+                    >
+                      <Text style={styles.returnWarning}>
+                        {returnConfirmVentaId === ventaId
+                          ? 'Confirmar devolución total'
+                          : 'Devolver venta total'}
+                      </Text>
+                    </Pressable>
+                  )}
+
+                  {partialReturnVentaId === ventaId && partialReturnItems.length > 0 ? (
+                    <View style={styles.suggestionsBox}>
+                      <Text style={styles.suggestionMeta}>
+                        Items cargados para devolución parcial: {partialReturnItems.length}
+                      </Text>
+
+                      {partialReturnItems.map((item, itemIndex) => {
+                        const cantidadSeleccionada = Number(item?.cantidadSeleccionada || 0);
+                        const pendiente = Number(item?.pendiente || 0);
+                        const cantidadInvalida =
+                          cantidadSeleccionada < 0 ||
+                          cantidadSeleccionada > pendiente;
+
+                        return (
+                          <View
+                            key={`${item.productoNombre}-${item.unidadVenta}-${itemIndex}`}
+                            style={styles.suggestionItem}
+                          >
+                            <Text style={styles.suggestionTitle}>
+                              {item.productoNombre || 'Producto sin nombre'}
+                            </Text>
+                            <Text style={styles.suggestionMeta}>
+                              Vendido: {item.cantidad} {item.unidadVenta} | Devuelto: {item.cantidadDevuelta} | Pendiente: {item.pendiente}
+                            </Text>
+                            <Text style={styles.suggestionMeta}>
+                              Precio unitario: {formatCurrency(item.precioUnitario)}
+                            </Text>
+
+                            <TextInput
+                              style={styles.input}
+                              value={String(item.cantidadSeleccionada || '')}
+                              onChangeText={(value) =>
+                                handlePartialReturnQuantityChange(itemIndex, value)
+                              }
+                              placeholder="Cantidad a devolver"
+                              placeholderTextColor="#94a3b8"
+                              keyboardType="decimal-pad"
+                            />
+
+                            {cantidadInvalida ? (
+                              <Text style={styles.errorText}>
+                                La cantidad no puede superar el pendiente.
+                              </Text>
+                            ) : null}
+                          </View>
+                        );
+                      })}
+
+                      <Text style={styles.suggestionMeta}>
+                        Total parcial estimado: {formatCurrency(getPartialReturnTotal())}
+                      </Text>
+                    </View>
+                  ) : null}
+
+                  {returnVentaNotice?.ventaId === ventaId && returnVentaNotice?.message ? (
+                    <Text style={styles.suggestionMeta}>
+                      {returnVentaNotice.message}
+                    </Text>
+                  ) : null}
+                </View>
+              );
+            })}
+          </View>
         ) : null}
       </View>
 
