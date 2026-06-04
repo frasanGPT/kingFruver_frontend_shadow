@@ -981,6 +981,41 @@ export default function VentasScreen({ onBack }) {
     });
   }
 
+  function getVentaCajaInfo(venta) {
+    const caja = venta?.cajaId || venta?.caja || {};
+
+    if (typeof caja === 'string') {
+      return {
+        id: caja,
+        nombre: '',
+        codigo: '',
+        estado: '',
+      };
+    }
+
+    return {
+      id: caja?._id || '',
+      nombre: caja?.nombre || '',
+      codigo: caja?.codigo || '',
+      estado: String(caja?.estado || '').trim().toLowerCase(),
+    };
+  }
+
+  function isVentaCajaCerradaParaDevolucion(venta) {
+    const cajaInfo = getVentaCajaInfo(venta);
+
+    return Boolean(cajaInfo.estado && cajaInfo.estado !== 'abierta');
+  }
+
+  function getVentaCajaLabel(venta) {
+    const cajaInfo = getVentaCajaInfo(venta);
+
+    const nombre = cajaInfo.codigo || cajaInfo.nombre || cajaInfo.id || 'sin caja';
+    const estado = cajaInfo.estado || 'estado no disponible';
+
+    return `${nombre} — ${estado}`;
+  }
+
   async function handleLoadVentasRecientes() {
     const activeToken = String(bearerToken || '').trim();
 
@@ -1148,6 +1183,13 @@ export default function VentasScreen({ onBack }) {
       return;
     }
 
+    if (isVentaCajaCerradaParaDevolucion(venta)) {
+      const message = 'Esta venta pertenece a una caja cerrada; requiere ajuste contable posterior.';
+      setReturnVentaNotice({ ventaId, message });
+      setVentaResult(message);
+      return;
+    }
+
     const selectedItems = getSelectedPartialReturnItems();
 
     if (selectedItems.length === 0) {
@@ -1245,6 +1287,13 @@ export default function VentasScreen({ onBack }) {
 
     if (!ventaId) {
       const message = 'No se pudo cargar detalle: ventaId inválido.';
+      setReturnVentaNotice({ ventaId, message });
+      setVentaResult(message);
+      return;
+    }
+
+    if (isVentaCajaCerradaParaDevolucion(venta)) {
+      const message = 'Esta venta pertenece a una caja cerrada; requiere ajuste contable posterior.';
       setReturnVentaNotice({ ventaId, message });
       setVentaResult(message);
       return;
@@ -1945,6 +1994,7 @@ export default function VentasScreen({ onBack }) {
               const totalVentaReciente = Number(venta?.total || 0);
               const itemsVenta = Array.isArray(venta?.items) ? venta.items : [];
               const isPartialCandidate = canPreparePartialReturn(venta);
+              const cajaCerradaParaDevolucion = isVentaCajaCerradaParaDevolucion(venta);
 
               return (
                 <View key={ventaId} style={styles.suggestionItem}>
@@ -1957,14 +2007,23 @@ export default function VentasScreen({ onBack }) {
                   <Text style={styles.suggestionMeta}>
                     Items: {itemsVenta.length}
                   </Text>
+                  <Text style={styles.suggestionMeta}>
+                    Caja: {getVentaCajaLabel(venta)}
+                  </Text>
 
                   {isPartialCandidate ? (
                     <Pressable
-                      style={styles.cancelEditButton}
+                      style={[
+                        styles.cancelEditButton,
+                        cajaCerradaParaDevolucion ? styles.buttonDisabled : null,
+                      ]}
+                      disabled={cajaCerradaParaDevolucion}
                       onPress={() => handleLoadVentaDetalle(venta)}
                     >
                       <Text style={styles.cancelEditButtonText}>
-                        Preparar devolución parcial
+                        {cajaCerradaParaDevolucion
+                          ? 'Caja cerrada: requiere ajuste'
+                          : 'Preparar devolución parcial'}
                       </Text>
                     </Pressable>
                   ) : (
@@ -1983,6 +2042,12 @@ export default function VentasScreen({ onBack }) {
                       </Text>
                     </Pressable>
                   )}
+
+                  {cajaCerradaParaDevolucion ? (
+                    <Text style={styles.errorText}>
+                      Esta venta pertenece a una caja cerrada; requiere ajuste contable posterior.
+                    </Text>
+                  ) : null}
 
                   {partialReturnVentaId === ventaId && partialReturnItems.length > 0 ? (
                     <View style={styles.suggestionsBox}>
