@@ -941,6 +941,46 @@ export default function VentasScreen({ onBack }) {
     }
   }
 
+  function getReturnPendingQuantity(item) {
+    const cantidad = Number(item?.cantidad || 0);
+    const cantidadDevuelta = Number(item?.cantidadDevuelta || 0);
+
+    return Math.max(cantidad - cantidadDevuelta, 0);
+  }
+
+  function isDivisibleReturnUnit(unidadVenta) {
+    const normalizedUnit = String(unidadVenta || '').trim().toLowerCase();
+
+    return [
+      'kg',
+      'kilo',
+      'kilos',
+      'kilogramo',
+      'kilogramos',
+      'lb',
+      'libra',
+      'libras',
+      'g',
+      'gr',
+      'gramo',
+      'gramos',
+    ].includes(normalizedUnit);
+  }
+
+  function canPreparePartialReturn(venta) {
+    const itemsVenta = Array.isArray(venta?.items) ? venta.items : [];
+
+    if (itemsVenta.length > 1) {
+      return true;
+    }
+
+    return itemsVenta.some((item) => {
+      const pendiente = getReturnPendingQuantity(item);
+
+      return pendiente > 1 || (pendiente > 0 && isDivisibleReturnUnit(item?.unidadVenta));
+    });
+  }
+
   async function handleLoadVentasRecientes() {
     const activeToken = String(bearerToken || '').trim();
 
@@ -961,15 +1001,22 @@ export default function VentasScreen({ onBack }) {
       const visibles = rows
         .filter((venta) => ['completada', 'parcialmente_devuelta'].includes(venta?.estado))
         .sort((a, b) => {
+          const aPartial = canPreparePartialReturn(a) ? 1 : 0;
+          const bPartial = canPreparePartialReturn(b) ? 1 : 0;
+
+          if (aPartial !== bPartial) {
+            return bPartial - aPartial;
+          }
+
           const aItems = Array.isArray(a?.items) ? a.items.length : 0;
           const bItems = Array.isArray(b?.items) ? b.items.length : 0;
           return bItems - aItems;
         });
 
-      setVentasRecientes(visibles.slice(0, 10));
+      setVentasRecientes(visibles.slice(0, 20));
 
-      const multiItemCount = visibles.filter((venta) => Array.isArray(venta?.items) && venta.items.length > 1).length;
-      const message = `Ventas recientes cargadas: ${visibles.slice(0, 10).length} | Multi-ítem: ${multiItemCount}`;
+      const partialCandidateCount = visibles.filter((venta) => canPreparePartialReturn(venta)).length;
+      const message = `Ventas recientes cargadas: ${visibles.slice(0, 20).length} | Candidatas parciales: ${partialCandidateCount}`;
       setVentasRecientesNotice(message);
       setVentaResult(message);
     } catch (error) {
@@ -1897,7 +1944,7 @@ export default function VentasScreen({ onBack }) {
               const estadoVenta = venta?.estado || 'sin estado';
               const totalVentaReciente = Number(venta?.total || 0);
               const itemsVenta = Array.isArray(venta?.items) ? venta.items : [];
-              const isPartialCandidate = itemsVenta.length > 1;
+              const isPartialCandidate = canPreparePartialReturn(venta);
 
               return (
                 <View key={ventaId} style={styles.suggestionItem}>
