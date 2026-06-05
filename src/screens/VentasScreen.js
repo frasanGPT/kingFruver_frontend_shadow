@@ -207,8 +207,15 @@ export default function VentasScreen({ onBack }) {
   const [partialReturnItems, setPartialReturnItems] = useState([]);
   const [partialReturnSubmittingVentaId, setPartialReturnSubmittingVentaId] = useState('');
   const [ventasRecientes, setVentasRecientes] = useState([]);
+  const [ventasRecientesFilter, setVentasRecientesFilter] = useState('todas');
   const [loadingVentasRecientes, setLoadingVentasRecientes] = useState(false);
   const [ventasRecientesNotice, setVentasRecientesNotice] = useState('');
+  const ventasRecientesFilterOptions = [
+    { id: 'todas', label: 'Todas' },
+    { id: 'candidatas_parciales', label: 'Candidatas parciales' },
+    { id: 'caja_abierta', label: 'Caja abierta' },
+    { id: 'caja_cerrada', label: 'Caja cerrada / requiere ajuste' },
+  ];
   const [ventaResult, setVentaResult] = useState('Todavía no has intentado crear la venta real.');
   const [creatingVenta, setCreatingVenta] = useState(false);
   const [ventaCreadaId, setVentaCreadaId] = useState('');
@@ -1016,6 +1023,28 @@ export default function VentasScreen({ onBack }) {
     return `${nombre} — ${estado}`;
   }
 
+  function isVentaCajaAbiertaParaDevolucion(venta) {
+    const cajaInfo = getVentaCajaInfo(venta);
+
+    return cajaInfo.estado === 'abierta';
+  }
+
+  function matchesVentasRecientesFilter(venta, filter) {
+    if (filter === 'candidatas_parciales') {
+      return canPreparePartialReturn(venta) && !isVentaCajaCerradaParaDevolucion(venta);
+    }
+
+    if (filter === 'caja_abierta') {
+      return isVentaCajaAbiertaParaDevolucion(venta);
+    }
+
+    if (filter === 'caja_cerrada') {
+      return isVentaCajaCerradaParaDevolucion(venta);
+    }
+
+    return true;
+  }
+
   async function handleLoadVentasRecientes() {
     const activeToken = String(bearerToken || '').trim();
 
@@ -1048,10 +1077,24 @@ export default function VentasScreen({ onBack }) {
           return bItems - aItems;
         });
 
-      setVentasRecientes(visibles.slice(0, 20));
+      const ventasRecientesVisibles = visibles.slice(0, 20);
+      setVentasRecientes(ventasRecientesVisibles);
 
-      const partialCandidateCount = visibles.filter((venta) => canPreparePartialReturn(venta)).length;
-      const message = `Ventas recientes cargadas: ${visibles.slice(0, 20).length} | Candidatas parciales: ${partialCandidateCount}`;
+      const partialCandidateCount = ventasRecientesVisibles.filter(
+        (venta) => canPreparePartialReturn(venta) && !isVentaCajaCerradaParaDevolucion(venta)
+      ).length;
+      const openBoxCount = ventasRecientesVisibles.filter(
+        (venta) => isVentaCajaAbiertaParaDevolucion(venta)
+      ).length;
+      const closedBoxCount = ventasRecientesVisibles.filter(
+        (venta) => isVentaCajaCerradaParaDevolucion(venta)
+      ).length;
+      const message = [
+        `Ventas recientes cargadas: ${ventasRecientesVisibles.length}`,
+        `Candidatas parciales: ${partialCandidateCount}`,
+        `Caja abierta: ${openBoxCount}`,
+        `Caja cerrada: ${closedBoxCount}`,
+      ].join(' | ');
       setVentasRecientesNotice(message);
       setVentaResult(message);
     } catch (error) {
@@ -1449,6 +1492,15 @@ export default function VentasScreen({ onBack }) {
       setCancellingCarrito(false);
     }
   }
+
+
+  const ventasRecientesFiltradas = ventasRecientes.filter((venta) =>
+    matchesVentasRecientesFilter(venta, ventasRecientesFilter)
+  );
+  const activeVentasRecientesFilter = ventasRecientesFilterOptions.find(
+    (option) => option.id === ventasRecientesFilter
+  );
+  const activeVentasRecientesFilterLabel = activeVentasRecientesFilter?.label || 'Todas';
 
   return (
     <AppShell
@@ -1987,8 +2039,45 @@ export default function VentasScreen({ onBack }) {
         ) : null}
 
         {ventasRecientes.length > 0 ? (
+          <>
+            <View style={styles.methodRow}>
+              {ventasRecientesFilterOptions.map((option) => {
+                const isActiveFilter = ventasRecientesFilter === option.id;
+
+                return (
+                  <Pressable
+                    key={option.id}
+                    style={[
+                      styles.methodButton,
+                      isActiveFilter ? styles.methodButtonActive : null,
+                    ]}
+                    onPress={() => setVentasRecientesFilter(option.id)}
+                  >
+                    <Text
+                      style={[
+                        styles.methodButtonText,
+                        isActiveFilter ? styles.methodButtonTextActive : null,
+                      ]}
+                    >
+                      {option.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <Text style={styles.suggestionMeta}>
+              Filtro activo: {activeVentasRecientesFilterLabel}
+            </Text>
+            <Text style={styles.suggestionMeta}>
+              Mostrando {ventasRecientesFiltradas.length} de {ventasRecientes.length}
+            </Text>
+          </>
+        ) : null}
+
+        {ventasRecientesFiltradas.length > 0 ? (
           <View style={styles.suggestionsBox}>
-            {ventasRecientes.map((venta) => {
+            {ventasRecientesFiltradas.map((venta) => {
               const ventaId = String(venta?._id || venta?.id || '');
               const estadoVenta = venta?.estado || 'sin estado';
               const totalVentaReciente = Number(venta?.total || 0);
