@@ -927,6 +927,7 @@ export default function VentasScreen({ onBack }) {
       setPayloadPreview(JSON.stringify(buildPreviewObject(carritoCreadoId, createdId), null, 2));
       setLastSaleSummary({
         ventaId: createdId,
+        ventaIdCorto: getShortId(createdId),
         cajaId: cajaId.trim(),
         metodoPago,
         totalVenta: Number.isFinite(ventaTotal) ? ventaTotal : 0,
@@ -1045,6 +1046,19 @@ export default function VentasScreen({ onBack }) {
     return true;
   }
 
+  function getVentaCreatedTimestamp(venta) {
+    const rawDate =
+      venta?.createdAt ||
+      venta?.fecha ||
+      venta?.fechaVenta ||
+      venta?.updatedAt ||
+      '';
+
+    const timestamp = Date.parse(rawDate);
+
+    return Number.isFinite(timestamp) ? timestamp : 0;
+  }
+
   async function handleLoadVentasRecientes() {
     const activeToken = String(bearerToken || '').trim();
 
@@ -1065,6 +1079,13 @@ export default function VentasScreen({ onBack }) {
       const visibles = rows
         .filter((venta) => ['completada', 'parcialmente_devuelta'].includes(venta?.estado))
         .sort((a, b) => {
+          const aCreated = getVentaCreatedTimestamp(a);
+          const bCreated = getVentaCreatedTimestamp(b);
+
+          if (aCreated !== bCreated) {
+            return bCreated - aCreated;
+          }
+
           const aPartial = canPreparePartialReturn(a) ? 1 : 0;
           const bPartial = canPreparePartialReturn(b) ? 1 : 0;
 
@@ -2009,7 +2030,10 @@ export default function VentasScreen({ onBack }) {
         {creatingVenta ? <ActivityIndicator size="large" style={styles.loader} /> : null}
 
         {ventaCreadaId ? (
-          <Text style={styles.successText}>ventaId creada: {ventaCreadaId}</Text>
+          <>
+            <Text style={styles.successText}>ventaId creada: {ventaCreadaId}</Text>
+            <Text style={styles.successText}>ID corto: #{getShortId(ventaCreadaId)}</Text>
+          </>
         ) : null}
       </View>
 
@@ -2337,6 +2361,7 @@ export default function VentasScreen({ onBack }) {
         <View style={styles.successBanner}>
           <Text style={styles.successBannerTitle}>Venta creada con exito</Text>
           <Text style={styles.successBannerText}>ventaId: {lastSaleSummary.ventaId}</Text>
+          <Text style={styles.successBannerText}>ID corto: #{lastSaleSummary.ventaIdCorto || getShortId(lastSaleSummary.ventaId)}</Text>
           <Text style={styles.successBannerText}>Caja: {cajaOperativaLabel}</Text>
           <Text style={styles.successBannerText}>Método de pago aplicado: {lastSaleSummary.metodoPago}</Text>
           <Text style={styles.successBannerText}>total: {formatCurrency(lastSaleSummary.totalVenta)}</Text>
