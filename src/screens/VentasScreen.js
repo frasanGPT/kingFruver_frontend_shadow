@@ -1059,6 +1059,33 @@ export default function VentasScreen({ onBack }) {
     return Number.isFinite(timestamp) ? timestamp : 0;
   }
 
+  function buildVentasRecientesVisibles(ventas) {
+    const limit = 20;
+    const rows = Array.isArray(ventas) ? ventas : [];
+    const visibles = rows.slice(0, limit);
+    const hasClosedBoxVisible = visibles.some((venta) =>
+      isVentaCajaCerradaParaDevolucion(venta)
+    );
+
+    if (hasClosedBoxVisible || visibles.length === 0) {
+      return visibles;
+    }
+
+    const firstClosedBoxVenta = rows.find((venta) =>
+      isVentaCajaCerradaParaDevolucion(venta)
+    );
+
+    if (!firstClosedBoxVenta) {
+      return visibles;
+    }
+
+    if (visibles.length < limit) {
+      return [...visibles, firstClosedBoxVenta];
+    }
+
+    return [...visibles.slice(0, limit - 1), firstClosedBoxVenta];
+  }
+
   async function handleLoadVentasRecientes() {
     const activeToken = String(bearerToken || '').trim();
 
@@ -1098,7 +1125,7 @@ export default function VentasScreen({ onBack }) {
           return bItems - aItems;
         });
 
-      const ventasRecientesVisibles = visibles.slice(0, 20);
+      const ventasRecientesVisibles = buildVentasRecientesVisibles(visibles);
       setVentasRecientes(ventasRecientesVisibles);
 
       const partialCandidateCount = ventasRecientesVisibles.filter(
