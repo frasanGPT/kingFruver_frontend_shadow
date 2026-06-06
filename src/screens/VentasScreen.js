@@ -2481,6 +2481,8 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#d0d7de',
     borderRadius: 14,
     padding: 16,
     marginBottom: 16,
