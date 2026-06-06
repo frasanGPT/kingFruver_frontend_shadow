@@ -1186,15 +1186,16 @@ const styles = StyleSheet.create({
   },
   secondaryButton: {
     width: '100%',
-    backgroundColor: '#e5e7eb',
+    backgroundColor: '#111827',
     paddingVertical: 14,
     paddingHorizontal: 18,
     borderRadius: 10,
     alignItems: 'center',
+    marginTop: 16,
     marginBottom: 24,
   },
   secondaryButtonText: {
-    color: '#111827',
+    color: '#ffffff',
     fontSize: 16,
     fontWeight: '600',
   },

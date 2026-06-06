@@ -977,10 +977,6 @@ export default function ComprasScreen({ onBack }) {
       layout="top"
     >
       <View style={styles.actionsRow}>
-        <Pressable style={styles.backButton} onPress={onBack}>
-          <Text style={styles.backButtonText}>Volver al inicio</Text>
-        </Pressable>
-
         <Pressable
           style={[styles.reloadButton, loading ? styles.disabledButton : null]}
           onPress={() => loadData()}
@@ -1412,6 +1408,10 @@ export default function ComprasScreen({ onBack }) {
           ))}
         </ScrollView>
       </View>
+      <Pressable style={styles.backButton} onPress={onBack}>
+        <Text style={styles.backButtonText}>Volver al inicio</Text>
+      </Pressable>
+
     </AppShell>
   );
 }
@@ -1424,14 +1424,19 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   backButton: {
-    backgroundColor: '#e5e7eb',
+    width: '100%',
+    backgroundColor: '#111827',
+    paddingVertical: 14,
+    paddingHorizontal: 18,
     borderRadius: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+    alignItems: 'center',
+    marginTop: 16,
+    marginBottom: 24,
   },
   backButtonText: {
-    color: '#111827',
-    fontWeight: '800',
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
   },
   reloadButton: {
     backgroundColor: '#111827',

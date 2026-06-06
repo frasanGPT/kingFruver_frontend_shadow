@@ -357,10 +357,6 @@ export default function UsuariosScreen({ onBack }) {
       layout="top"
     >
       <View style={styles.headerActions}>
-        <Pressable style={styles.backButton} onPress={onBack}>
-          <Text style={styles.backButtonText}>Volver al inicio</Text>
-        </Pressable>
-
         <Pressable style={styles.reloadButton} onPress={() => loadUsuariosFromApi()}>
           <Text style={styles.reloadButtonText}>Recargar usuarios</Text>
         </Pressable>
@@ -560,6 +556,10 @@ export default function UsuariosScreen({ onBack }) {
           </View>
         </View>
       </Modal>
+      <Pressable style={styles.backButton} onPress={onBack}>
+        <Text style={styles.backButtonText}>Volver al inicio</Text>
+      </Pressable>
+
     </AppShell>
   );
 }
@@ -572,15 +572,19 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   backButton: {
-    backgroundColor: '#e5e7eb',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+    width: '100%',
+    backgroundColor: '#111827',
+    paddingVertical: 14,
+    paddingHorizontal: 18,
     borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 16,
+    marginBottom: 24,
   },
   backButtonText: {
-    color: '#111827',
-    fontSize: 14,
-    fontWeight: '700',
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
   },
   reloadButton: {
     backgroundColor: '#111827',
