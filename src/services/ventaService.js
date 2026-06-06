@@ -90,6 +90,27 @@ export async function devolverVentaParcial({ ventaId, motivo, notas, items, toke
   });
 }
 
+export async function aplicarAjusteContableVentaCerrada({
+  ventaId,
+  tipo,
+  motivo,
+  notas,
+  items,
+  token,
+}) {
+  const payload = {
+    ventaId,
+    tipo,
+    motivo,
+    notas,
+    items,
+  };
+
+  return apiPost('/api/ajustes-contables/devolucion-venta-cerrada', payload, {
+    headers: buildAuthHeaders(token),
+  });
+}
+
 export async function getVentaDetalle({ ventaId, token }) {
   return apiGet(`/api/ventas/${ventaId}`, {
     headers: buildAuthHeaders(token),

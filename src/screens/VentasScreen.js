@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import AppShell from '../components/AppShell';
 import { cancelCarrito, createCarrito, getCarritos } from '../services/carritoService';
-import { createVenta, devolverVenta, devolverVentaParcial, getVentaDetalle, getVentas } from '../services/ventaService';
+import { createVenta, devolverVenta, devolverVentaParcial, aplicarAjusteContableVentaCerrada, getVentaDetalle, getVentas } from '../services/ventaService';
 import { getInventarioDisponible } from '../services/inventarioService';
 import { loadSession, saveSession } from '../services/sessionService';
 import { getCajas } from '../services/cajaService';
@@ -206,6 +206,7 @@ export default function VentasScreen({ onBack }) {
   const [partialReturnVentaId, setPartialReturnVentaId] = useState('');
   const [partialReturnItems, setPartialReturnItems] = useState([]);
   const [partialReturnSubmittingVentaId, setPartialReturnSubmittingVentaId] = useState('');
+  const [ajusteContableSubmittingVentaId, setAjusteContableSubmittingVentaId] = useState('');
   const [ventasRecientes, setVentasRecientes] = useState([]);
   const [ventasRecientesFilter, setVentasRecientesFilter] = useState('todas');
   const [loadingVentasRecientes, setLoadingVentasRecientes] = useState(false);
@@ -1274,12 +1275,7 @@ export default function VentasScreen({ onBack }) {
       return;
     }
 
-    if (isVentaCajaCerradaParaDevolucion(venta)) {
-      const message = 'Esta venta pertenece a una caja cerrada; requiere ajuste contable posterior.';
-      setReturnVentaNotice({ ventaId, message });
-      setVentaResult(message);
-      return;
-    }
+    const isClosedBoxAdjustment = isVentaCajaCerradaParaDevolucion(venta);
 
     const selectedItems = getSelectedPartialReturnItems();
 
@@ -1301,6 +1297,81 @@ export default function VentasScreen({ onBack }) {
       const message = 'Hay cantidades inválidas. Revisa que ninguna supere el pendiente.';
       setReturnVentaNotice({ ventaId, message });
       setVentaResult(message);
+      return;
+    }
+
+    if (isClosedBoxAdjustment) {
+      const motivo = `Ajuste contable posterior desde app móvil - venta ${ventaId}`;
+      const notas = 'Ajuste contable posterior por devolución parcial desde Ventas.';
+
+      try {
+        setAjusteContableSubmittingVentaId(ventaId);
+        setReturnVentaNotice({ ventaId, message: 'Aplicando ajuste contable posterior...' });
+        setVentaResult('Aplicando ajuste contable posterior...');
+
+        const response = await aplicarAjusteContableVentaCerrada({
+          ventaId,
+          tipo: 'parcial',
+          motivo,
+          notas,
+          items: selectedItems.map((item) => ({
+            productoNombre: item.productoNombre,
+            unidadVenta: item.unidadVenta,
+            cantidad: item.cantidad,
+          })),
+          token: activeToken,
+        });
+
+        const responseData = response?.data || {};
+        const resumen = responseData?.resumen || response?.resumen || {};
+        const ajuste = responseData?.ajuste || response?.ajuste || {};
+
+        let updatedVenta = {};
+        try {
+          const detailResponse = await getVentaDetalle({ ventaId, token: activeToken });
+          updatedVenta = detailResponse?.data || detailResponse?.venta || {};
+        } catch (_) {
+          updatedVenta = {};
+        }
+
+        const updatedItems = buildPartialReturnItems(updatedVenta);
+
+        if (updatedItems.length > 0) {
+          setPartialReturnItems(updatedItems);
+        }
+
+        setVentasRecientes((current) =>
+          current.map((ventaReciente) =>
+            String(ventaReciente?._id || ventaReciente?.id || '') === ventaId
+              ? {
+                  ...ventaReciente,
+                  estado: updatedVenta?.estado || 'parcialmente_devuelta',
+                  items: Array.isArray(updatedVenta?.items) ? updatedVenta.items : ventaReciente?.items,
+                }
+              : ventaReciente
+          )
+        );
+
+        const successMessage = [
+          'Ajuste contable posterior aplicado correctamente.',
+          `Estado: ${updatedVenta?.estado || 'parcialmente_devuelta'}`,
+          `Total ajustado: ${formatCurrency(resumen.totalAjustado || ajuste.totalAjustado || 0)}`,
+          `Items ajustados: ${Array.isArray(resumen.itemsAjustados) ? resumen.itemsAjustados.length : selectedItems.length}`,
+          `Inventarios actualizados: ${resumen.inventariosActualizados || 0}`,
+          `Kardex creados: ${resumen.kardexCreados || 0}`,
+          `Ajuste: #${getShortId(resumen.ajusteId || ajuste?._id || '')}`,
+        ].join('\n');
+
+        setReturnVentaNotice({ ventaId, message: successMessage });
+        setVentaResult(successMessage);
+      } catch (error) {
+        const message = `Error al aplicar ajuste contable posterior: ${error.message}`;
+        setReturnVentaNotice({ ventaId, message });
+        setVentaResult(message);
+      } finally {
+        setAjusteContableSubmittingVentaId('');
+      }
+
       return;
     }
 
@@ -1383,11 +1454,12 @@ export default function VentasScreen({ onBack }) {
       return;
     }
 
-    if (isVentaCajaCerradaParaDevolucion(venta)) {
-      const message = 'Esta venta pertenece a una caja cerrada; requiere ajuste contable posterior.';
+    const isClosedBoxAdjustment = isVentaCajaCerradaParaDevolucion(venta);
+
+    if (isClosedBoxAdjustment) {
+      const message = 'Esta venta pertenece a una caja cerrada; cargando detalle para ajuste contable posterior.';
       setReturnVentaNotice({ ventaId, message });
       setVentaResult(message);
-      return;
     }
 
     try {
@@ -2155,15 +2227,17 @@ export default function VentasScreen({ onBack }) {
                     <Pressable
                       style={[
                         styles.cancelEditButton,
-                        cajaCerradaParaDevolucion ? styles.buttonDisabled : null,
+                        ajusteContableSubmittingVentaId === ventaId ? styles.buttonDisabled : null,
                       ]}
-                      disabled={cajaCerradaParaDevolucion}
+                      disabled={ajusteContableSubmittingVentaId === ventaId}
                       onPress={() => handleLoadVentaDetalle(venta)}
                     >
                       <Text style={styles.cancelEditButtonText}>
-                        {cajaCerradaParaDevolucion
-                          ? 'Caja cerrada: requiere ajuste'
-                          : 'Preparar devolución parcial'}
+                        {ajusteContableSubmittingVentaId === ventaId
+                          ? 'Aplicando ajuste posterior...'
+                          : cajaCerradaParaDevolucion
+                            ? 'Preparar ajuste posterior'
+                            : 'Preparar devolución parcial'}
                       </Text>
                     </Pressable>
                   ) : (
@@ -2246,13 +2320,17 @@ export default function VentasScreen({ onBack }) {
                           styles.deleteButton,
                           partialReturnSubmittingVentaId === ventaId ? styles.buttonDisabled : null,
                         ]}
-                        disabled={partialReturnSubmittingVentaId === ventaId}
+                        disabled={partialReturnSubmittingVentaId === ventaId || ajusteContableSubmittingVentaId === ventaId}
                         onPress={() => handleConfirmDevolucionParcial(venta)}
                       >
                         <Text style={styles.returnWarning}>
-                          {partialReturnSubmittingVentaId === ventaId
-                            ? 'Confirmando devolución parcial...'
-                            : 'Confirmar devolución parcial'}
+                          {partialReturnSubmittingVentaId === ventaId || ajusteContableSubmittingVentaId === ventaId
+                            ? cajaCerradaParaDevolucion
+                              ? 'Aplicando ajuste posterior...'
+                              : 'Confirmando devolución parcial...'
+                            : cajaCerradaParaDevolucion
+                              ? 'Confirmar ajuste posterior'
+                              : 'Confirmar devolución parcial'}
                         </Text>
                       </Pressable>
                     </View>
