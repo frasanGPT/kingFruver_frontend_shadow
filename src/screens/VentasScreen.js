@@ -1364,6 +1364,8 @@ export default function VentasScreen({ onBack }) {
 
         setReturnVentaNotice({ ventaId, message: successMessage });
         setVentaResult(successMessage);
+        setPartialReturnVentaId('');
+        setPartialReturnItems([]);
       } catch (error) {
         const message = `Error al aplicar ajuste contable posterior: ${error.message}`;
         setReturnVentaNotice({ ventaId, message });
@@ -2331,6 +2333,26 @@ export default function VentasScreen({ onBack }) {
                             : cajaCerradaParaDevolucion
                               ? 'Confirmar ajuste posterior'
                               : 'Confirmar devolución parcial'}
+                        </Text>
+                      </Pressable>
+
+                      <Pressable
+                        style={[
+                          styles.cancelEditButton,
+                          partialReturnSubmittingVentaId === ventaId || ajusteContableSubmittingVentaId === ventaId
+                            ? styles.buttonDisabled
+                            : null,
+                        ]}
+                        disabled={partialReturnSubmittingVentaId === ventaId || ajusteContableSubmittingVentaId === ventaId}
+                        onPress={() => {
+                          setPartialReturnVentaId('');
+                          setPartialReturnItems([]);
+                        }}
+                      >
+                        <Text style={styles.cancelEditButtonText}>
+                          {cajaCerradaParaDevolucion
+                            ? 'Cancelar ajuste posterior'
+                            : 'Cancelar devolución parcial'}
                         </Text>
                       </Pressable>
                     </View>
