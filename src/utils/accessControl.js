@@ -50,8 +50,7 @@ roleCode !== "vendedor" &&
 roleCode !== "cajero" &&
 hasPermission(usuario, "inventario:read");
 const ventas =
-roleCode !== "supervisor" &&
-(hasPermission(usuario, "ventas:create") || hasPermission(usuario, "ventas:read"));
+hasPermission(usuario, "ventas:create") || hasPermission(usuario, "ventas:read");
 const cajas = hasPermission(usuario, "cajas:read");
 const reportes =
 roleCode !== "cajero" &&
