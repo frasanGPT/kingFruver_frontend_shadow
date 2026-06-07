@@ -229,6 +229,7 @@ export default function VentasScreen({ onBack }) {
   const cantidadInputRef = useRef(null);
   const roleCode = getRoleCode(authUser);
   const isCajero = roleCode === 'cajero';
+  const canCreateAjusteContable = roleCode === 'admin' || roleCode === 'supervisor';
 
   useEffect(() => {
     async function restoreSession() {
@@ -1442,6 +1443,16 @@ export default function VentasScreen({ onBack }) {
 
     const activeToken = String(bearerToken || '').trim();
 
+    const requiereAjusteContable = isVentaCajaCerradaParaDevolucion(venta);
+
+    if (requiereAjusteContable && !canCreateAjusteContable) {
+      const message =
+        'Esta venta pertenece a una caja cerrada; requiere ajuste contable posterior por administrador o supervisor.';
+      setReturnVentaNotice({ ventaId, message });
+      setVentaResult(message);
+      return;
+    }
+
     if (!activeToken) {
       const message = 'Primero valida acceso en Home para preparar devolución parcial.';
       setReturnVentaNotice({ ventaId, message });
@@ -2229,16 +2240,21 @@ export default function VentasScreen({ onBack }) {
                     <Pressable
                       style={[
                         styles.cancelEditButton,
+                        cajaCerradaParaDevolucion && !canCreateAjusteContable
+                          ? styles.buttonDisabled
+                          : null,
                         ajusteContableSubmittingVentaId === ventaId ? styles.buttonDisabled : null,
                       ]}
-                      disabled={ajusteContableSubmittingVentaId === ventaId}
+                      disabled={(ajusteContableSubmittingVentaId === ventaId) || (cajaCerradaParaDevolucion && !canCreateAjusteContable)}
                       onPress={() => handleLoadVentaDetalle(venta)}
                     >
                       <Text style={styles.cancelEditButtonText}>
                         {ajusteContableSubmittingVentaId === ventaId
                           ? 'Aplicando ajuste posterior...'
                           : cajaCerradaParaDevolucion
+                            ? canCreateAjusteContable
                             ? 'Preparar ajuste posterior'
+                            : 'Ajuste posterior: requiere admin/supervisor'
                             : 'Preparar devolución parcial'}
                       </Text>
                     </Pressable>
