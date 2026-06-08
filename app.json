@@ -33,6 +33,11 @@
     "runtimeVersion": "1.0.0",
     "updates": {
       "fallbackToCacheTimeout": 0
+    },
+    "extra": {
+      "eas": {
+        "projectId": "ff03708c-5676-44f7-a768-7c0615effa55"
+      }
     }
   }
 }
