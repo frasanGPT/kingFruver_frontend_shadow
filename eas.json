@@ -11,10 +11,31 @@
       },
       "ios": {
         "simulator": false
+      },
+      "env": {
+        "KINGFRUVER_APP_ENV": "shadow",
+        "EXPO_PUBLIC_KINGFRUVER_API_ENV": "shadow"
       }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "KINGFRUVER_APP_ENV": "prod",
+        "EXPO_PUBLIC_KINGFRUVER_API_ENV": "prod"
+      }
+    },
+    "production-internal": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "ios": {
+        "simulator": false
+      },
+      "env": {
+        "KINGFRUVER_APP_ENV": "prod",
+        "EXPO_PUBLIC_KINGFRUVER_API_ENV": "prod"
+      }
     }
   },
   "submit": {

@@ -48,7 +48,31 @@ export const ENVIRONMENTS = {
   },
 };
 
-let activeEnvironmentKey = ENVIRONMENT_KEYS.SHADOW;
+function readPublicEnv(name) {
+  if (typeof process === "undefined" || !process.env) {
+    return "";
+  }
+
+  return String(process.env[name] || "").trim().toLowerCase();
+}
+
+function getInitialEnvironmentKey() {
+  const requestedKey =
+    readPublicEnv("EXPO_PUBLIC_KINGFRUVER_API_ENV") ||
+    readPublicEnv("KINGFRUVER_API_ENV");
+
+  if (requestedKey === "production") {
+    return ENVIRONMENT_KEYS.PROD;
+  }
+
+  if (requestedKey === ENVIRONMENT_KEYS.PROD || requestedKey === ENVIRONMENT_KEYS.SHADOW) {
+    return requestedKey;
+  }
+
+  return ENVIRONMENT_KEYS.SHADOW;
+}
+
+let activeEnvironmentKey = getInitialEnvironmentKey();
 
 export function getEnvironment(environmentKey) {
   return ENVIRONMENTS[environmentKey] || ENVIRONMENTS[ENVIRONMENT_KEYS.SHADOW];
