@@ -22,20 +22,19 @@ function getAppEnv() {
   return raw === "production" ? ENV_KEYS.PROD : raw;
 }
 
-function removeEasProjectId(extra) {
-  const nextExtra = { ...(extra || {}) };
+const EAS_PROJECT_IDS = {
+  SHADOW: "ff03708c-5676-44f7-a768-7c0615effa55",
+  PROD: "32b0262a-e429-44f8-a367-7e4d51d3eed1",
+};
 
-  if (nextExtra.eas && typeof nextExtra.eas === "object") {
-    const { projectId, ...remainingEas } = nextExtra.eas;
-
-    if (Object.keys(remainingEas).length > 0) {
-      nextExtra.eas = remainingEas;
-    } else {
-      delete nextExtra.eas;
-    }
-  }
-
-  return nextExtra;
+function withProdEasProjectId(extra) {
+  return {
+    ...(extra || {}),
+    eas: {
+      ...((extra || {}).eas || {}),
+      projectId: EAS_PROJECT_IDS.PROD,
+    },
+  };
 }
 
 module.exports = () => {
@@ -59,6 +58,6 @@ module.exports = () => {
       ...(baseConfig.android || {}),
       package: "com.kingfruver.app",
     },
-    extra: removeEasProjectId(baseConfig.extra),
+    extra: withProdEasProjectId(baseConfig.extra),
   };
 };
