@@ -15,14 +15,16 @@
       "env": {
         "KINGFRUVER_APP_ENV": "shadow",
         "EXPO_PUBLIC_KINGFRUVER_API_ENV": "shadow"
-      }
+      },
+      "channel": "shadow-preview"
     },
     "production": {
       "autoIncrement": true,
       "env": {
         "KINGFRUVER_APP_ENV": "prod",
         "EXPO_PUBLIC_KINGFRUVER_API_ENV": "prod"
-      }
+      },
+      "channel": "production"
     },
     "production-internal": {
       "distribution": "internal",
@@ -35,7 +37,8 @@
       "env": {
         "KINGFRUVER_APP_ENV": "prod",
         "EXPO_PUBLIC_KINGFRUVER_API_ENV": "prod"
-      }
+      },
+      "channel": "production-internal"
     }
   },
   "submit": {
